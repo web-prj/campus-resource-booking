@@ -20,7 +20,7 @@ via [TypeORM](https://typeorm.io/).
 - OpenAPI docs at `GET /api/docs` (non-production only)
 - Health checks (`@nestjs/terminus`) at `GET /api/health`
 - ESLint + Prettier, Jest unit & e2e tests
-- Docker Compose runs the app and PostgreSQL together, migrations included
+- Root Docker Compose stack runs PostgreSQL, backend, and frontend together
 
 ## Getting started
 
@@ -44,8 +44,15 @@ openssl rand -base64 48
 
 ### 3. Start PostgreSQL and apply migrations
 
+From the repository root, start PostgreSQL:
+
 ```bash
 docker compose up -d postgres
+```
+
+Then return to `web-backend/` and apply migrations:
+
+```bash
 npm run migration:run
 ```
 
@@ -62,21 +69,19 @@ The API is at `http://localhost:3000/api`, with docs at
 
 ## Running with Docker
 
-The Compose stack builds the app image and starts it alongside PostgreSQL.
-Pending migrations run automatically on boot:
+Docker configuration is owned by the repository root. The combined stack builds
+and starts PostgreSQL, this API, and the Next.js frontend; pending migrations run
+automatically before the API starts:
 
 ```bash
-export AUTH_JWT_SECRET=$(openssl rand -base64 48)
+cd ..
+cp .env.example .env
+# Replace AUTH_JWT_SECRET in .env with: openssl rand -base64 48
 docker compose up -d --build
 ```
 
-`AUTH_JWT_SECRET` is required — Compose refuses to start without it rather than
-falling back to a shared default that would make tokens forgeable. Stop with:
-
-```bash
-docker compose down          # keep data
-docker compose down -v       # also wipe the database volume
-```
+See the root `README.md` and `compose.yaml` for service URLs, configuration, logs,
+and shutdown commands.
 
 ## Authentication
 

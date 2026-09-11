@@ -1,7 +1,7 @@
 import "server-only";
 
 import { cookies } from "next/headers";
-import { getApiEndpoint } from "@/lib/api/config";
+import { getServerApiEndpoint } from "@/lib/api/server-config";
 import { parseUser } from "../schema";
 import type { User } from "../types";
 
@@ -10,7 +10,7 @@ export async function getCurrentUser(request: typeof fetch = fetch): Promise<Use
   let response: Response;
 
   try {
-    response = await request(getApiEndpoint("/auth/me"), {
+    response = await request(getServerApiEndpoint("/auth/me"), {
       headers: cookieHeader ? { Cookie: cookieHeader } : undefined,
       cache: "no-store",
     });

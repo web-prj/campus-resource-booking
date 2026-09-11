@@ -15,7 +15,7 @@ cp .env.example .env.local
 npm run dev
 ```
 
-The frontend runs at [http://localhost:3001](http://localhost:3001). The API defaults to `http://localhost:3000/api` and can be changed with `NEXT_PUBLIC_API_URL`.
+The frontend runs at [http://localhost:3001](http://localhost:3001). Browser requests use `NEXT_PUBLIC_API_URL`, defaulting to `http://localhost:3000/api`. Server Components use `INTERNAL_API_URL` when provided, which lets the root Docker Compose stack reach the backend at `http://backend:3000/api` without exposing that container hostname to browsers.
 
 The backend allows `http://localhost:3001` by default. Browser requests use `credentials: "include"`, while Server Components explicitly forward the incoming cookie for session checks. The token is never exposed to or stored by frontend JavaScript.
 

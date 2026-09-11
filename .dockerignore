@@ -1,0 +1,30 @@
+# Git and repository tooling
+.git
+.gitignore
+.github
+.pi
+AGENTS.md
+
+# Dependencies and generated output
+**/node_modules
+**/.next
+**/dist
+**/build
+**/out
+**/coverage
+**/*.tsbuildinfo
+
+# Local configuration and secrets
+**/.env
+**/.env.*
+!**/.env.example
+!**/.env.test
+
+# Documentation and local noise
+**/*.log
+**/.DS_Store
+**/.idea
+**/.vscode
+docs
+README.md
+**/README.md

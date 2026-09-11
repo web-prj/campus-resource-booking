@@ -18,7 +18,7 @@ The project proposal is in `docs/Campus_Resource_Booking_Project_Proposal_EN.doc
 - `.pi/skills/frontend-design/SKILL.md` — project-specific USTH frontend design guidance.
 - `docs/` — project proposal and supporting documentation.
 
-There is no root application package. Run npm commands from the relevant subproject. `web-backend/` is its own Git worktree; do not assume the repository root or `web-frontend/` has the same Git state.
+There is no root application package. Run npm commands from the relevant subproject. Git and Docker Compose are managed at the repository root.
 
 ## Working principles
 
@@ -43,7 +43,7 @@ Architecture:
 - Follow the existing formatting style: double quotes, semicolons, and accessible semantic JSX.
 
 Authentication and API:
-- The API root comes from `NEXT_PUBLIC_API_URL`, defaulting to `http://localhost:3000/api`.
+- Browser API calls use `NEXT_PUBLIC_API_URL`, defaulting to `http://localhost:3000/api`. Server Components use `INTERNAL_API_URL` when set, falling back to the public URL.
 - Authentication uses an `httpOnly` cookie. Browser requests must use `credentials: "include"`.
 - Never store or expose the JWT in frontend JavaScript, `localStorage`, `sessionStorage`, or response UI.
 - Preserve safe internal redirect validation. Do not permit protocol-relative, external, backslash, or control-character redirects.
@@ -111,10 +111,14 @@ Database rules:
 Backend setup:
 
 ```bash
+# From the repository root, start PostgreSQL only:
+cp .env.example .env
+docker compose up -d postgres
+
+# Then run the backend locally:
 cd web-backend
 npm install
 cp .env.example .env
-docker compose up -d postgres
 npm run migration:run
 npm run start:dev
 ```
@@ -145,6 +149,8 @@ npm run migration:revert
 
 - Backend base URL: `http://localhost:3000/api`.
 - Frontend URL: `http://localhost:3001`.
+- Root `compose.yaml` builds and runs PostgreSQL, backend, and frontend together.
+- Browser code uses `NEXT_PUBLIC_API_URL`; frontend Server Components use `INTERNAL_API_URL` inside Compose.
 - Local backend CORS must include `http://localhost:3001`.
 - Keep frontend types, error handling, and route usage aligned with backend DTOs and status codes.
 - When changing an API contract, update backend DTO/controller/Swagger/tests and frontend types/client/UI in the same task when applicable.
