@@ -1,0 +1,29 @@
+# Dependencies
+**/node_modules/
+
+# Framework and compiled output
+**/.next/
+**/dist/
+**/build/
+**/out/
+
+# Test and tooling output
+**/coverage/
+**/.nyc_output/
+**/*.tsbuildinfo
+*.log
+
+# Local environment and secrets
+**/.env
+**/.env.*
+!**/.env.example
+!**/.env.test
+
+# Editor and OS files
+**/.DS_Store
+**/.idea/
+**/.vscode/
+
+# Temporary files
+**/.temp/
+**/.tmp/

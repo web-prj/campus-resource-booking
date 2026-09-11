@@ -1,0 +1,18 @@
+export function getSafeRedirect(
+  value: string | string[] | undefined,
+  fallback = "/welcome",
+): string {
+  if (typeof value !== "string") return fallback;
+
+  const candidate = value.trim();
+  if (
+    !candidate.startsWith("/") ||
+    candidate.startsWith("//") ||
+    candidate.includes("\\") ||
+    /[\u0000-\u001f\u007f]/.test(candidate)
+  ) {
+    return fallback;
+  }
+
+  return candidate;
+}
