@@ -1,0 +1,125 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  frontend:
+    name: Frontend
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: web-frontend
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web-frontend/package-lock.json
+      - name: Install dependencies
+        run: npm ci
+      - name: Lint
+        run: npm run lint
+      - name: Type-check
+        run: npm run typecheck
+      - name: Test
+        run: npm test
+      - name: Build
+        run: npm run build
+
+  backend:
+    name: Backend
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: web-backend
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web-backend/package-lock.json
+      - name: Install dependencies
+        run: npm ci
+      - name: Lint without modifying files
+        run: npx --no-install eslint "{src,apps,libs,test}/**/*.ts"
+      - name: Test
+        run: npm test -- --runInBand
+      - name: Build
+        run: npm run build
+
+  backend-e2e:
+    name: Backend E2E
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres@sha256:16bc17c64a573ef34162af9298258d1aec548232985b33ed7b1eac33ba35c229 # 16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: web_backend_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d web_backend_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      NODE_ENV: test
+      PORT: 18320
+      API_PREFIX: api
+      CORS_ORIGINS: http://localhost:18321
+      DB_HOST: localhost
+      DB_PORT: 5432
+      DB_USERNAME: postgres
+      DB_PASSWORD: postgres
+      DB_NAME: web_backend_test
+      DB_SYNCHRONIZE: "false"
+      DB_LOGGING: "false"
+      AUTH_JWT_SECRET: ci-only-secret-value-at-least-32-characters
+      AUTH_TOKEN_EXPIRES_IN: 15m
+      AUTH_COOKIE_NAME: access_token
+      AUTH_COOKIE_SAME_SITE: lax
+      AUTH_COOKIE_SECURE: "false"
+      AUTH_BCRYPT_ROUNDS: 10
+      THROTTLE_TTL: 60
+      THROTTLE_LIMIT: 100000
+      AUTH_THROTTLE_LIMIT: 100000
+    defaults:
+      run:
+        working-directory: web-backend
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web-backend/package-lock.json
+      - name: Install dependencies
+        run: npm ci
+      - name: Apply database migrations
+        run: npm run migration:run
+      - name: Run end-to-end tests
+        run: npm run test:e2e -- --runInBand
