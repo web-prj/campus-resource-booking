@@ -4,8 +4,8 @@ A full-stack USTH application for finding, reserving, approving, and managing un
 
 ## Repository structure
 
-- `web-frontend/` — Next.js 16 and React 19, served on port `46121`.
-- `web-backend/` — NestJS 10, TypeORM, and PostgreSQL, served on port `46120` under `/api`.
+- `web-frontend/` — Next.js 16 and React 19, served on port `18321`.
+- `web-backend/` — NestJS 10, TypeORM, and PostgreSQL, served on port `18320` under `/api`.
 - `docs/` — project proposal and supporting documentation.
 - `compose.yaml` — combined PostgreSQL, backend, and frontend stack.
 - `Dockerfile` — multi-target build for both applications.
@@ -28,12 +28,12 @@ docker compose up -d --build
 
 The services are available at:
 
-- Frontend: http://localhost:46121
-- Backend API: http://localhost:46120/api
-- API documentation: http://localhost:46120/api/docs
-- PostgreSQL: `localhost:46122`
+- Frontend: http://localhost:18321
+- Backend API: http://localhost:18320/api
+- API documentation: http://localhost:18320/api/docs
+- PostgreSQL: `localhost:18322`
 
-The backend waits for PostgreSQL, applies pending migrations, and then starts. The frontend waits for the backend health check.
+The backend waits for PostgreSQL, applies pending migrations, and then starts. The frontend waits for the backend health check. Compose uses the dedicated `10.203.250.0/24` private subnet so it does not depend on Docker's exhausted default address pools on busy hosts. If that subnet conflicts with a host route or VPN, set a different unused `/24` in `DOCKER_SUBNET`.
 
 ```bash
 docker compose ps
@@ -41,6 +41,8 @@ docker compose logs -f backend frontend
 docker compose down       # keep database data
 docker compose down -v    # delete the database volume
 ```
+
+If Docker reports `all predefined address pools have been fully subnetted`, confirm `.env` contains `DOCKER_SUBNET=10.203.250.0/24` and retry. The project network is explicitly allocated from that subnet; no global network pruning or Docker daemon restart is required.
 
 The default Compose configuration is intended for local HTTP development. For production, terminate HTTPS at a trusted proxy and set at least:
 
@@ -51,7 +53,7 @@ CORS_ORIGINS=https://your-frontend.example
 NEXT_PUBLIC_API_URL=https://your-api.example/api
 ```
 
-`NEXT_PUBLIC_API_URL` is embedded when the frontend image is built. Run `docker compose build frontend` after changing it. Server Components use the internal Compose URL `http://backend:46120/api` automatically.
+`NEXT_PUBLIC_API_URL` is embedded when the frontend image is built. Run `docker compose build frontend` after changing it. Server Components use the internal Compose URL `http://backend:18320/api` automatically.
 
 ## Run applications locally
 

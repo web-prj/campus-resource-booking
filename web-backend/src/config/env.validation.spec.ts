@@ -18,10 +18,10 @@ describe('envValidationSchema', () => {
     expect(error).toBeUndefined();
     expect(value).toMatchObject({
       NODE_ENV: 'development',
-      PORT: 46120,
+      PORT: 18320,
       API_PREFIX: 'api',
-      CORS_ORIGINS: 'http://localhost:46121',
-      DB_PORT: 46122,
+      CORS_ORIGINS: 'http://localhost:18321',
+      DB_PORT: 18322,
       AUTH_TOKEN_EXPIRES_IN: '1d',
       AUTH_COOKIE_NAME: 'access_token',
       AUTH_COOKIE_SAME_SITE: 'lax',

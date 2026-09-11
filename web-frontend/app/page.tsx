@@ -119,13 +119,13 @@ export default function HomePage() {
                 with availability you can trust.
               </p>
               <div className="hero__actions">
-                <Link className="button button--primary" href="/login">
-                  Find a resource
+                <Link className="button button--primary" href="/register">
+                  Create student account
                   <ArrowRightIcon width={20} height={20} />
                 </Link>
-                <a className="button button--glass" href="#workflow">
-                  See how it works
-                </a>
+                <Link className="button button--glass" href="/login">
+                  Sign in
+                </Link>
               </div>
               <div className="hero__assurance" aria-label="Booking benefits">
                 <span>
@@ -309,14 +309,19 @@ export default function HomePage() {
               <div className="final-cta__copy">
                 <h2 id="cta-title">Ready to find your space?</h2>
                 <p>
-                  Sign in with your USTH email to start searching available rooms,
-                  laboratories, and equipment.
+                  Create a student account with your USTH email, or sign in if
+                  you already have one.
                 </p>
               </div>
-              <Link className="button button--primary final-cta__button" href="/login">
-                Sign in to continue
-                <ArrowUpRightIcon width={20} height={20} />
-              </Link>
+              <div className="final-cta__actions">
+                <Link className="button button--primary final-cta__button" href="/register">
+                  Create account
+                  <ArrowUpRightIcon width={20} height={20} />
+                </Link>
+                <Link className="button button--glass final-cta__button" href="/login">
+                  Sign in
+                </Link>
+              </div>
             </div>
           </div>
         </section>
@@ -329,6 +334,7 @@ export default function HomePage() {
           <div className="site-footer__links">
             <a href="#resources">Resources</a>
             <a href="#workflow">How it works</a>
+            <Link href="/register">Create account</Link>
             <Link href="/login">Sign in</Link>
           </div>
         </div>

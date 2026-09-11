@@ -12,6 +12,14 @@ export function isUsthEmail(value: string): boolean {
   return USTH_EMAIL_PATTERN.test(value.trim());
 }
 
+export function getUtf8ByteLength(value: string): number {
+  return new TextEncoder().encode(value).length;
+}
+
+export function isValidRegistrationPassword(value: string): boolean {
+  return value.length >= 8 && getUtf8ByteLength(value) <= 72;
+}
+
 export function parseUser(value: unknown): User | null {
   if (!isRecord(value)) return null;
 

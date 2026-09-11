@@ -3,7 +3,7 @@ import * as request from 'supertest';
 import { createTestApp } from './utils/test-app';
 
 const CORS_ORIGIN =
-  process.env.CORS_ORIGINS?.split(',')[0] ?? 'http://localhost:46121';
+  process.env.CORS_ORIGINS?.split(',')[0] ?? 'http://localhost:18321';
 
 describe('App (e2e)', () => {
   let app: INestApplication;

@@ -1220,6 +1220,7 @@ svg {
 }
 
 .final-cta__copy,
+.final-cta__actions,
 .final-cta__button {
   position: relative;
   z-index: 1;
@@ -1237,6 +1238,12 @@ svg {
   max-width: 540px;
   margin: 18px 0 0;
   color: rgba(255, 255, 255, 0.68);
+}
+
+.final-cta__actions {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 10px;
 }
 
 .final-cta__button {
@@ -1679,6 +1686,53 @@ svg {
   text-align: center;
 }
 
+.auth-switch {
+  margin: 24px 0 0;
+  color: var(--muted);
+  font-size: 0.72rem;
+  text-align: center;
+}
+
+.auth-switch a {
+  color: var(--usth-blue);
+  font-weight: 850;
+  text-decoration: underline;
+  text-decoration-color: rgba(42, 60, 149, 0.25);
+  text-underline-offset: 3px;
+}
+
+.auth-switch a:hover {
+  color: var(--usth-red-dark);
+  text-decoration-color: currentColor;
+}
+
+.login-panel--register {
+  align-items: start;
+  padding-top: 34px;
+  padding-bottom: 34px;
+}
+
+.login-panel--register .back-link {
+  margin-bottom: 30px;
+}
+
+.login-panel--register .login-panel__heading {
+  margin-bottom: 26px;
+}
+
+.register-form {
+  gap: 16px;
+}
+
+.register-form .field-control {
+  min-height: 52px;
+}
+
+.register-form .field-control input {
+  padding-top: 14px;
+  padding-bottom: 14px;
+}
+
 .login-panel__help {
   display: flex;
   align-items: flex-start;
@@ -1860,6 +1914,10 @@ svg {
     order: -1;
     min-height: 100svh;
     padding: 64px 32px;
+  }
+
+  .login-panel--register {
+    min-height: 100svh;
   }
 
   .login-showcase {
@@ -2072,6 +2130,11 @@ svg {
     border-radius: 25px;
   }
 
+  .final-cta__actions {
+    width: 100%;
+    flex-direction: column;
+  }
+
   .final-cta__button {
     width: 100%;
   }
@@ -2110,8 +2173,17 @@ svg {
     padding: 46px 20px;
   }
 
+  .login-panel--register {
+    padding-top: 38px;
+    padding-bottom: 92px;
+  }
+
   .back-link {
     margin-bottom: 45px;
+  }
+
+  .login-panel--register .back-link {
+    margin-bottom: 28px;
   }
 
 }

@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { isUsthEmail, parseUser } from "./schema";
+import {
+  getUtf8ByteLength,
+  isUsthEmail,
+  isValidRegistrationPassword,
+  parseUser,
+} from "./schema";
 
 const validUser = {
   id: "11111111-1111-4111-8111-111111111111",
@@ -21,6 +26,14 @@ describe("auth schema", () => {
     "@usth.edu.vn",
   ])("rejects invalid email %j", (email) => {
     expect(isUsthEmail(email)).toBe(false);
+  });
+
+  it("validates password length using UTF-8 bytes", () => {
+    expect(isValidRegistrationPassword("password123")).toBe(true);
+    expect(isValidRegistrationPassword("short")).toBe(false);
+    expect(getUtf8ByteLength("é")).toBe(2);
+    expect(isValidRegistrationPassword("é".repeat(36))).toBe(true);
+    expect(isValidRegistrationPassword("é".repeat(37))).toBe(false);
   });
 
   it("parses a valid user response", () => {

@@ -1,5 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { login, LoginError, logout } from "./browser";
+import {
+  login,
+  LoginError,
+  logout,
+  register,
+  RegistrationError,
+} from "./browser";
 
 const validUser = {
   id: "11111111-1111-4111-8111-111111111111",
@@ -19,7 +25,7 @@ function response(body: unknown, status = 200): Response {
 describe("auth browser API", () => {
   beforeEach(() => {
     vi.unstubAllEnvs();
-    vi.stubEnv("NEXT_PUBLIC_API_URL", "http://localhost:46120/api/");
+    vi.stubEnv("NEXT_PUBLIC_API_URL", "http://localhost:18320/api/");
   });
 
   it("normalizes login input and includes cookie credentials", async () => {
@@ -30,7 +36,7 @@ describe("auth browser API", () => {
     ).resolves.toEqual(validUser);
 
     expect(request).toHaveBeenCalledWith(
-      "http://localhost:46120/api/auth/login",
+      "http://localhost:18320/api/auth/login",
       expect.objectContaining({
         method: "POST",
         credentials: "include",
@@ -71,13 +77,83 @@ describe("auth browser API", () => {
     ).rejects.toMatchObject({ code: "unexpected" });
   });
 
+  it("normalizes registration input and includes cookie credentials", async () => {
+    const request = vi.fn<typeof fetch>().mockResolvedValue(
+      response(validUser, 201),
+    );
+
+    await expect(
+      register(
+        {
+          fullName: "  Nam Tran  ",
+          email: "  NAM.TRAN@USTH.EDU.VN ",
+          password: "password123",
+        },
+        request,
+      ),
+    ).resolves.toEqual(validUser);
+
+    expect(request).toHaveBeenCalledWith(
+      "http://localhost:18320/api/auth/register",
+      expect.objectContaining({
+        method: "POST",
+        credentials: "include",
+        body: JSON.stringify({
+          email: "nam.tran@usth.edu.vn",
+          password: "password123",
+          fullName: "Nam Tran",
+        }),
+      }),
+    );
+  });
+
+  it.each([
+    [400, "validation"],
+    [409, "duplicate"],
+    [429, "rate-limit"],
+    [500, "unexpected"],
+  ] as const)("maps registration HTTP %i to %s", async (status, code) => {
+    const request = vi.fn<typeof fetch>().mockResolvedValue(response({}, status));
+
+    await expect(
+      register(
+        {
+          fullName: "Nam Tran",
+          email: "nam.tran@usth.edu.vn",
+          password: "password123",
+        },
+        request,
+      ),
+    ).rejects.toMatchObject({
+      name: "RegistrationError",
+      code,
+    } satisfies Partial<RegistrationError>);
+  });
+
+  it("rejects a malformed successful registration response", async () => {
+    const request = vi.fn<typeof fetch>().mockResolvedValue(
+      response({ role: "student" }, 201),
+    );
+
+    await expect(
+      register(
+        {
+          fullName: "Nam Tran",
+          email: "nam.tran@usth.edu.vn",
+          password: "password123",
+        },
+        request,
+      ),
+    ).rejects.toMatchObject({ code: "unexpected" });
+  });
+
   it("logs out with a credentialed POST", async () => {
     const request = vi.fn<typeof fetch>().mockResolvedValue(response(undefined, 204));
 
     await logout(request);
 
     expect(request).toHaveBeenCalledWith(
-      "http://localhost:46120/api/auth/logout",
+      "http://localhost:18320/api/auth/logout",
       expect.objectContaining({ method: "POST", credentials: "include" }),
     );
   });

@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { BrandMark } from "@/components/brand-mark";
-import { LoginForm } from "@/features/auth/components/login-form";
 import {
   CheckIcon,
   ChevronLeftIcon,
@@ -10,24 +9,25 @@ import {
   RoomIcon,
   ShieldCheckIcon,
 } from "@/components/icons";
+import { RegisterForm } from "@/features/auth/components/register-form";
 import { getSafeRedirect } from "@/features/auth/routing";
 
 export const metadata: Metadata = {
-  title: "Sign in",
-  description: "Sign in with your USTH account to access campus resources.",
+  title: "Create account",
+  description: "Create a student account with your USTH email address.",
 };
 
-interface LoginPageProps {
+interface RegisterPageProps {
   searchParams: Promise<{ next?: string | string[] }>;
 }
 
-export default async function LoginPage({ searchParams }: LoginPageProps) {
+export default async function RegisterPage({ searchParams }: RegisterPageProps) {
   const params = await searchParams;
   const redirectTo = getSafeRedirect(params.next);
 
   return (
-    <main className="login-page">
-      <section className="login-showcase" aria-labelledby="login-showcase-title">
+    <main className="login-page register-page">
+      <section className="login-showcase" aria-labelledby="register-showcase-title">
         <div className="login-showcase__atmosphere" aria-hidden="true">
           <span className="login-showcase__grid" />
           <span className="login-showcase__glow login-showcase__glow--one" />
@@ -39,42 +39,40 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
           <div className="login-showcase__message">
             <p className="section-kicker section-kicker--light">
               <span className="section-kicker__dot" />
-              Campus access
+              Student registration
             </p>
-            <h1 id="login-showcase-title">
-              Everything you need, one sign-in away.
-            </h1>
+            <h1 id="register-showcase-title">Plan campus time around what you need.</h1>
             <p>
-              Compare availability, reserve with confidence, and keep every
-              campus booking in view.
+              Create one student account to search rooms, request laboratories,
+              reserve equipment, and follow every booking status.
             </p>
           </div>
 
-          <div className="login-resource-stack" aria-label="Available resource types">
+          <div className="login-resource-stack" aria-label="Campus resource types">
             <div className="login-resource-card login-resource-card--first">
               <span><RoomIcon /></span>
-              <div><strong>Study room A101</strong><small>Open at 10:00</small></div>
+              <div><strong>Study rooms</strong><small>Compare capacity and time slots</small></div>
               <CheckIcon />
             </div>
             <div className="login-resource-card login-resource-card--second">
               <span><LaboratoryIcon /></span>
-              <div><strong>Biology lab B204</strong><small>Approval required</small></div>
-              <span className="login-resource-card__status">Pending</span>
+              <div><strong>Laboratories</strong><small>See approval requirements</small></div>
+              <span className="login-resource-card__status">Review</span>
             </div>
             <div className="login-resource-card login-resource-card--third">
               <span><EquipmentIcon /></span>
-              <div><strong>Projector kit P-12</strong><small>Available today</small></div>
+              <div><strong>Equipment</strong><small>Track collection and return</small></div>
               <CheckIcon />
             </div>
           </div>
 
           <p className="login-showcase__footnote">
-            <ShieldCheckIcon /> Protected access for USTH students and staff
+            <ShieldCheckIcon /> Registration is restricted to @usth.edu.vn accounts
           </p>
         </div>
       </section>
 
-      <section className="login-panel" aria-labelledby="login-title">
+      <section className="login-panel login-panel--register" aria-labelledby="register-title">
         <div className="login-panel__inner">
           <Link className="back-link" href="/">
             <ChevronLeftIcon width={18} height={18} />
@@ -82,34 +80,19 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
           </Link>
 
           <div className="login-panel__heading">
-            <p className="login-panel__eyebrow">Welcome back</p>
-            <h2 id="login-title">Sign in to your account</h2>
-            <p>Use your university credentials to continue.</p>
+            <p className="login-panel__eyebrow">Start booking</p>
+            <h2 id="register-title">Create your student account</h2>
+            <p>Use your university email and choose a password.</p>
           </div>
 
-          <LoginForm redirectTo={redirectTo} />
+          <RegisterForm redirectTo={redirectTo} />
 
           <p className="auth-switch">
-            New to Campus Resource Booking?{" "}
-            <Link href={`/register?next=${encodeURIComponent(redirectTo)}`}>
-              Create an account
+            Already have an account?{" "}
+            <Link href={`/login?next=${encodeURIComponent(redirectTo)}`}>
+              Sign in
             </Link>
           </p>
-
-          <div className="login-panel__help">
-            <span />
-            <p>
-              Having trouble signing in? Visit the{" "}
-              <a
-                href="https://usth.edu.vn/lien-he/"
-                target="_blank"
-                rel="noreferrer"
-              >
-                USTH contact page
-              </a>{" "}
-              for account support.
-            </p>
-          </div>
         </div>
       </section>
     </main>

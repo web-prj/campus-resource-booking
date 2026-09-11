@@ -189,6 +189,15 @@ export function SlidersIcon(props: IconProps) {
   );
 }
 
+export function UserIcon(props: IconProps) {
+  return (
+    <svg {...sharedProps} {...props}>
+      <circle cx="12" cy="8" r="4" />
+      <path d="M4.5 21a7.5 7.5 0 0 1 15 0" />
+    </svg>
+  );
+}
+
 export function StatusIcon(props: IconProps) {
   return (
     <svg {...sharedProps} {...props}>
