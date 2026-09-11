@@ -8,15 +8,16 @@ services:
       POSTGRES_USER: ${DB_USERNAME:-postgres}
       POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
       POSTGRES_DB: ${DB_NAME:-web_backend}
+    command: ["postgres", "-p", "46122"]
     ports:
-      - "${DB_HOST_PORT:-5432}:5432"
+      - "${DB_HOST_PORT:-46122}:46122"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
       test:
         [
           "CMD-SHELL",
-          "pg_isready -U ${DB_USERNAME:-postgres} -d ${DB_NAME:-web_backend}",
+          "pg_isready -p 46122 -U ${DB_USERNAME:-postgres} -d ${DB_NAME:-web_backend}",
         ]
       interval: 5s
       timeout: 5s
@@ -34,11 +35,11 @@ services:
       # Local Compose runs compiled code over HTTP. For production, set
       # NODE_ENV=production and AUTH_COOKIE_SECURE=true behind HTTPS.
       NODE_ENV: ${NODE_ENV:-development}
-      PORT: 3000
+      PORT: 46120
       API_PREFIX: ${API_PREFIX:-api}
-      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3001}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:46121}
       DB_HOST: postgres
-      DB_PORT: 5432
+      DB_PORT: 46122
       DB_USERNAME: ${DB_USERNAME:-postgres}
       DB_PASSWORD: ${DB_PASSWORD:-postgres}
       DB_NAME: ${DB_NAME:-web_backend}
@@ -54,7 +55,7 @@ services:
       THROTTLE_LIMIT: ${THROTTLE_LIMIT:-100}
       AUTH_THROTTLE_LIMIT: ${AUTH_THROTTLE_LIMIT:-10}
     ports:
-      - "${BACKEND_PORT:-3000}:3000"
+      - "${BACKEND_PORT:-46120}:46120"
     command:
       - /bin/sh
       - -c
@@ -62,7 +63,7 @@ services:
         node node_modules/typeorm/cli.js migration:run -d dist/database/data-source.js
         && node dist/main
     healthcheck:
-      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:3000/api/health"]
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:46120/api/health"]
       interval: 10s
       timeout: 5s
       retries: 10
@@ -74,18 +75,18 @@ services:
       target: frontend
       args:
         # Browser-visible URL; this value is embedded during `next build`.
-        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3000/api}
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:46120/api}
     restart: unless-stopped
     depends_on:
       backend:
         condition: service_healthy
     environment:
       # Server Components use the Compose network instead of browser localhost.
-      INTERNAL_API_URL: http://backend:3000/api
+      INTERNAL_API_URL: http://backend:46120/api
     ports:
-      - "${FRONTEND_PORT:-3001}:3001"
+      - "${FRONTEND_PORT:-46121}:46121"
     healthcheck:
-      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:3001/"]
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:46121/"]
       interval: 10s
       timeout: 5s
       retries: 10

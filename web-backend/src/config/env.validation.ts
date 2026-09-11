@@ -3,6 +3,7 @@ import {
   DEFAULT_API_PREFIX,
   DEFAULT_AUTH_COOKIE_NAME,
   DEFAULT_CORS_ORIGINS,
+  DEFAULT_DB_PORT,
   DEFAULT_PORT,
 } from './defaults';
 
@@ -21,7 +22,7 @@ export const envValidationSchema = Joi.object({
   CORS_ORIGINS: Joi.string().default(DEFAULT_CORS_ORIGINS),
 
   DB_HOST: Joi.string().required(),
-  DB_PORT: Joi.number().port().default(5432),
+  DB_PORT: Joi.number().port().default(DEFAULT_DB_PORT),
   DB_USERNAME: Joi.string().required(),
   DB_PASSWORD: Joi.string().allow('').required(),
   DB_NAME: Joi.string().required(),

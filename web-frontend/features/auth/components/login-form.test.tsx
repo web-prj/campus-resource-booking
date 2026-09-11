@@ -41,6 +41,16 @@ describe("LoginForm", () => {
     expect(mockedLogin).toHaveBeenCalledTimes(1);
   });
 
+  it("navigates to the dashboard by default after login", async () => {
+    render(<LoginForm />);
+
+    await userEvent.type(screen.getByLabelText("USTH email"), "student@usth.edu.vn");
+    await userEvent.type(screen.getByLabelText("Password"), "password123");
+    await userEvent.click(screen.getByRole("button", { name: "Sign in securely" }));
+
+    await waitFor(() => expect(replace).toHaveBeenCalledWith("/dashboard"));
+  });
+
   it("navigates to the safe destination after login", async () => {
     mockedLogin.mockResolvedValue({
       id: "11111111-1111-4111-8111-111111111111",

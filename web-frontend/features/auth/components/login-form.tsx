@@ -21,7 +21,7 @@ interface FormErrors {
   password?: string;
 }
 
-export function LoginForm({ redirectTo = "/welcome" }: LoginFormProps) {
+export function LoginForm({ redirectTo = "/dashboard" }: LoginFormProps) {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");

@@ -1,6 +1,6 @@
 export function getSafeRedirect(
   value: string | string[] | undefined,
-  fallback = "/welcome",
+  fallback = "/dashboard",
 ): string {
   if (typeof value !== "string") return fallback;
 

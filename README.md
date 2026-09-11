@@ -4,8 +4,8 @@ A full-stack USTH application for finding, reserving, approving, and managing un
 
 ## Repository structure
 
-- `web-frontend/` — Next.js 16 and React 19, served on port `3001`.
-- `web-backend/` — NestJS 10, TypeORM, and PostgreSQL, served on port `3000` under `/api`.
+- `web-frontend/` — Next.js 16 and React 19, served on port `46121`.
+- `web-backend/` — NestJS 10, TypeORM, and PostgreSQL, served on port `46120` under `/api`.
 - `docs/` — project proposal and supporting documentation.
 - `compose.yaml` — combined PostgreSQL, backend, and frontend stack.
 - `Dockerfile` — multi-target build for both applications.
@@ -28,10 +28,10 @@ docker compose up -d --build
 
 The services are available at:
 
-- Frontend: http://localhost:3001
-- Backend API: http://localhost:3000/api
-- API documentation: http://localhost:3000/api/docs
-- PostgreSQL: `localhost:5432`
+- Frontend: http://localhost:46121
+- Backend API: http://localhost:46120/api
+- API documentation: http://localhost:46120/api/docs
+- PostgreSQL: `localhost:46122`
 
 The backend waits for PostgreSQL, applies pending migrations, and then starts. The frontend waits for the backend health check.
 
@@ -51,7 +51,7 @@ CORS_ORIGINS=https://your-frontend.example
 NEXT_PUBLIC_API_URL=https://your-api.example/api
 ```
 
-`NEXT_PUBLIC_API_URL` is embedded when the frontend image is built. Run `docker compose build frontend` after changing it. Server Components use the internal Compose URL `http://backend:3000/api` automatically.
+`NEXT_PUBLIC_API_URL` is embedded when the frontend image is built. Run `docker compose build frontend` after changing it. Server Components use the internal Compose URL `http://backend:46120/api` automatically.
 
 ## Run applications locally
 

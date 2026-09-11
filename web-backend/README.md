@@ -64,8 +64,8 @@ Or point `.env` at an existing PostgreSQL instance.
 npm run start:dev
 ```
 
-The API is at `http://localhost:3000/api`, with docs at
-`http://localhost:3000/api/docs`.
+The API is at `http://localhost:46120/api`, with docs at
+`http://localhost:46120/api/docs`.
 
 ## Running with Docker
 
@@ -103,23 +103,23 @@ including subdomains such as `x@mail.usth.edu.vn`, is rejected with `400`.
 
 ```bash
 # Register — the cookie is stored in cookies.txt; the body holds only the user
-curl -c cookies.txt -X POST http://localhost:3000/api/auth/register \
+curl -c cookies.txt -X POST http://localhost:46120/api/auth/register \
   -H 'Content-Type: application/json' \
   -d '{"email":"nam.tran@usth.edu.vn","password":"password123","fullName":"Nam Tran"}'
 
 # Log in
-curl -c cookies.txt -X POST http://localhost:3000/api/auth/login \
+curl -c cookies.txt -X POST http://localhost:46120/api/auth/login \
   -H 'Content-Type: application/json' \
   -d '{"email":"nam.tran@usth.edu.vn","password":"password123"}'
 
 # Call a protected route with the stored cookie
-curl -b cookies.txt http://localhost:3000/api/auth/me
+curl -b cookies.txt http://localhost:46120/api/auth/me
 
 # Log out
-curl -b cookies.txt -X POST http://localhost:3000/api/auth/logout
+curl -b cookies.txt -X POST http://localhost:46120/api/auth/logout
 ```
 
-From the companion frontend at `http://localhost:3001`, send
+From the companion frontend at `http://localhost:46121`, send
 `credentials: 'include'`. That origin is allowed by default; set `CORS_ORIGINS`
 to explicit comma-separated origins for other deployments. A wildcard is not
 usable with credentialed requests.
@@ -127,14 +127,14 @@ usable with credentialed requests.
 ### Frontend example
 
 ```ts
-await fetch('http://localhost:3000/api/auth/login', {
+await fetch('http://localhost:46120/api/auth/login', {
   method: 'POST',
   credentials: 'include', // required, both to store and to send the cookie
   headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify({ email, password }),
 });
 
-const me = await fetch('http://localhost:3000/api/auth/me', {
+const me = await fetch('http://localhost:46120/api/auth/me', {
   credentials: 'include',
 }).then((res) => res.json());
 ```
@@ -210,7 +210,7 @@ list.
 | `AUTH_COOKIE_SAME_SITE` | `lax`            | `lax`, `strict`, or `none`               |
 | `AUTH_COOKIE_SECURE`    | prod: `true`     | HTTPS-only cookie                        |
 | `AUTH_BCRYPT_ROUNDS`    | `12`             | Password hashing cost                    |
-| `CORS_ORIGINS`          | `localhost:3001` | Comma-separated allowed origins          |
+| `CORS_ORIGINS`          | `localhost:46121` | Comma-separated allowed origins          |
 | `THROTTLE_LIMIT`        | `100`            | Requests per window                      |
 | `AUTH_THROTTLE_LIMIT`   | `10`             | Tighter budget for login/register        |
 

@@ -4,7 +4,15 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { logout } from "../api/browser";
 
-export function LogoutButton() {
+interface LogoutButtonProps {
+  className?: string;
+  errorClassName?: string;
+}
+
+export function LogoutButton({
+  className = "button button--primary",
+  errorClassName = "field-message field-message--error",
+}: LogoutButtonProps = {}) {
   const router = useRouter();
   const [isPending, setIsPending] = useState(false);
   const [error, setError] = useState("");
@@ -27,7 +35,7 @@ export function LogoutButton() {
   return (
     <div>
       <button
-        className="button button--primary"
+        className={className}
         type="button"
         disabled={isPending}
         onClick={handleLogout}
@@ -35,7 +43,7 @@ export function LogoutButton() {
         {isPending ? "Signing out…" : "Sign out"}
       </button>
       {error && (
-        <p className="welcome-card__note" role="alert">
+        <p className={errorClassName} role="alert">
           {error}
         </p>
       )}

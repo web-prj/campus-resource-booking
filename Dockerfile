@@ -17,7 +17,7 @@ COPY --from=backend-builder --chown=node:node /app/web-backend/node_modules ./no
 COPY --from=backend-builder --chown=node:node /app/web-backend/dist ./dist
 COPY --from=backend-builder --chown=node:node /app/web-backend/package.json ./package.json
 USER node
-EXPOSE 3000
+EXPOSE 46120
 CMD ["node", "dist/main"]
 
 # ---------- Frontend build ----------
@@ -26,7 +26,7 @@ WORKDIR /app/web-frontend
 COPY web-frontend/package.json web-frontend/package-lock.json ./
 RUN npm ci
 COPY web-frontend/ ./
-ARG NEXT_PUBLIC_API_URL=http://localhost:3000/api
+ARG NEXT_PUBLIC_API_URL=http://localhost:46120/api
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 RUN npm run build
 
@@ -35,10 +35,10 @@ FROM node:22-alpine AS frontend
 WORKDIR /app
 ENV NODE_ENV=production \
     HOSTNAME=0.0.0.0 \
-    PORT=3001
+    PORT=46121
 COPY --from=frontend-builder --chown=node:node /app/web-frontend/public ./public
 COPY --from=frontend-builder --chown=node:node /app/web-frontend/.next/standalone ./
 COPY --from=frontend-builder --chown=node:node /app/web-frontend/.next/static ./.next/static
 USER node
-EXPOSE 3001
+EXPOSE 46121
 CMD ["node", "server.js"]

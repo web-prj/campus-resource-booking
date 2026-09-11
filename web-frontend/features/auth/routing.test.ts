@@ -3,9 +3,10 @@ import { getSafeRedirect } from "./routing";
 
 describe("getSafeRedirect", () => {
   it.each([
+    ["/dashboard", "/dashboard"],
     ["/welcome", "/welcome"],
     ["/bookings?status=pending", "/bookings?status=pending"],
-    ["  /welcome  ", "/welcome"],
+    ["  /dashboard  ", "/dashboard"],
   ])("accepts internal path %j", (value, expected) => {
     expect(getSafeRedirect(value)).toBe(expected);
   });
@@ -18,7 +19,7 @@ describe("getSafeRedirect", () => {
     "/\\evil.example",
     "/welcome\u0000",
   ])("rejects unsafe redirect %j", (value) => {
-    expect(getSafeRedirect(value)).toBe("/welcome");
+    expect(getSafeRedirect(value)).toBe("/dashboard");
   });
 
   it("uses the supplied fallback", () => {

@@ -19,7 +19,7 @@ function response(body: unknown, status = 200): Response {
 describe("auth browser API", () => {
   beforeEach(() => {
     vi.unstubAllEnvs();
-    vi.stubEnv("NEXT_PUBLIC_API_URL", "http://localhost:3000/api/");
+    vi.stubEnv("NEXT_PUBLIC_API_URL", "http://localhost:46120/api/");
   });
 
   it("normalizes login input and includes cookie credentials", async () => {
@@ -30,7 +30,7 @@ describe("auth browser API", () => {
     ).resolves.toEqual(validUser);
 
     expect(request).toHaveBeenCalledWith(
-      "http://localhost:3000/api/auth/login",
+      "http://localhost:46120/api/auth/login",
       expect.objectContaining({
         method: "POST",
         credentials: "include",
@@ -77,7 +77,7 @@ describe("auth browser API", () => {
     await logout(request);
 
     expect(request).toHaveBeenCalledWith(
-      "http://localhost:3000/api/auth/logout",
+      "http://localhost:46120/api/auth/logout",
       expect.objectContaining({ method: "POST", credentials: "include" }),
     );
   });

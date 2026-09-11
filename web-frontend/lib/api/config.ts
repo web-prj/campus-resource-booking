@@ -1,4 +1,4 @@
-const DEFAULT_API_URL = "http://localhost:3000/api";
+const DEFAULT_API_URL = "http://localhost:46120/api";
 
 export function getApiUrl(): string {
   return (process.env.NEXT_PUBLIC_API_URL ?? DEFAULT_API_URL).replace(/\/+$/, "");

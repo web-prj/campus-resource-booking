@@ -13,8 +13,8 @@ The project proposal is in `docs/Campus_Resource_Booking_Project_Proposal_EN.doc
 
 ## Repository layout
 
-- `web-frontend/` — Next.js 16, React 19, TypeScript, App Router. Runs on port `3001`.
-- `web-backend/` — NestJS 10, TypeORM, PostgreSQL. API runs on port `3000` under `/api`.
+- `web-frontend/` — Next.js 16, React 19, TypeScript, App Router. Runs on port `46121`.
+- `web-backend/` — NestJS 10, TypeORM, PostgreSQL. API runs on port `46120` under `/api`.
 - `.pi/skills/frontend-design/SKILL.md` — project-specific USTH frontend design guidance.
 - `docs/` — project proposal and supporting documentation.
 
@@ -43,7 +43,7 @@ Architecture:
 - Follow the existing formatting style: double quotes, semicolons, and accessible semantic JSX.
 
 Authentication and API:
-- Browser API calls use `NEXT_PUBLIC_API_URL`, defaulting to `http://localhost:3000/api`. Server Components use `INTERNAL_API_URL` when set, falling back to the public URL.
+- Browser API calls use `NEXT_PUBLIC_API_URL`, defaulting to `http://localhost:46120/api`. Server Components use `INTERNAL_API_URL` when set, falling back to the public URL.
 - Authentication uses an `httpOnly` cookie. Browser requests must use `credentials: "include"`.
 - Never store or expose the JWT in frontend JavaScript, `localStorage`, `sessionStorage`, or response UI.
 - Preserve safe internal redirect validation. Do not permit protocol-relative, external, backslash, or control-character redirects.
@@ -147,11 +147,11 @@ npm run migration:revert
 
 ## Cross-stack contract
 
-- Backend base URL: `http://localhost:3000/api`.
-- Frontend URL: `http://localhost:3001`.
+- Backend base URL: `http://localhost:46120/api`.
+- Frontend URL: `http://localhost:46121`.
 - Root `compose.yaml` builds and runs PostgreSQL, backend, and frontend together.
 - Browser code uses `NEXT_PUBLIC_API_URL`; frontend Server Components use `INTERNAL_API_URL` inside Compose.
-- Local backend CORS must include `http://localhost:3001`.
+- Local backend CORS must include `http://localhost:46121`.
 - Keep frontend types, error handling, and route usage aligned with backend DTOs and status codes.
 - When changing an API contract, update backend DTO/controller/Swagger/tests and frontend types/client/UI in the same task when applicable.
 - Preserve the complete authentication flow: normalized USTH email → validated credentials → `httpOnly` session cookie → credentialed frontend requests.
