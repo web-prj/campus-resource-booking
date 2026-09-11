@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 
 # ---------- Backend build ----------
-FROM node:22-alpine AS backend-builder
+FROM node:26-alpine AS backend-builder
 WORKDIR /app/web-backend
 COPY web-backend/package.json web-backend/package-lock.json ./
 RUN npm ci
@@ -9,7 +9,7 @@ COPY web-backend/ ./
 RUN npm run build && npm prune --omit=dev
 
 # ---------- Backend runtime ----------
-FROM node:22-alpine AS backend
+FROM node:26-alpine AS backend
 RUN apk add --no-cache libstdc++
 WORKDIR /app
 ENV NODE_ENV=production
@@ -21,7 +21,7 @@ EXPOSE 18320
 CMD ["node", "dist/main"]
 
 # ---------- Frontend build ----------
-FROM node:22-alpine AS frontend-builder
+FROM node:26-alpine AS frontend-builder
 WORKDIR /app/web-frontend
 COPY web-frontend/package.json web-frontend/package-lock.json ./
 RUN npm ci
@@ -31,7 +31,7 @@ ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 RUN npm run build
 
 # ---------- Frontend runtime ----------
-FROM node:22-alpine AS frontend
+FROM node:26-alpine AS frontend
 WORKDIR /app
 ENV NODE_ENV=production \
     HOSTNAME=0.0.0.0 \
