@@ -6,7 +6,7 @@ via [TypeORM](https://typeorm.io/).
 
 ## Features
 
-- NestJS 10 with a modular, feature-based structure
+- NestJS 11 with a modular, feature-based structure
 - PostgreSQL via TypeORM (`@nestjs/typeorm`)
 - Typed, namespaced environment configuration (`@nestjs/config` + Joi)
 - Database migrations (no `synchronize` in production)

@@ -5,7 +5,12 @@
  */
 const DURATION_PATTERN = /^(\d+)(ms|s|m|h|d)$/;
 
-const UNIT_TO_MS: Record<string, number> = {
+type DurationUnit = 'ms' | 's' | 'm' | 'h' | 'd';
+
+/** A duration accepted by both the environment schema and JWT signing. */
+export type DurationString = `${number}` | `${number}${DurationUnit}`;
+
+const UNIT_TO_MS: Record<DurationUnit, number> = {
   ms: 1,
   s: 1_000,
   m: 60_000,
@@ -20,20 +25,30 @@ const UNIT_TO_MS: Record<string, number> = {
  * @throws Error when the value cannot be interpreted, so a typo in the
  *   environment fails fast at boot instead of silently expiring cookies.
  */
-export function durationToMs(value: string): number {
+export function parseDuration(value: string): DurationString {
   const normalized = value.trim().toLowerCase();
 
-  if (/^\d+$/.test(normalized)) {
-    return Number(normalized) * UNIT_TO_MS.s;
+  if (/^\d+$/.test(normalized) || DURATION_PATTERN.test(normalized)) {
+    return normalized as DurationString;
   }
 
-  const match = DURATION_PATTERN.exec(normalized);
+  throw new Error(
+    `Invalid duration "${value}". Use digits with a unit, e.g. 500ms, 30s, 15m, 12h, 7d.`,
+  );
+}
+
+export function durationToMs(value: string): number {
+  const duration = parseDuration(value);
+
+  if (/^\d+$/.test(duration)) {
+    return Number(duration) * UNIT_TO_MS.s;
+  }
+
+  const match = DURATION_PATTERN.exec(duration);
   if (!match) {
-    throw new Error(
-      `Invalid duration "${value}". Use digits with a unit, e.g. 500ms, 30s, 15m, 12h, 7d.`,
-    );
+    throw new Error(`Unable to parse validated duration "${duration}".`);
   }
 
   const [, amount, unit] = match;
-  return Number(amount) * UNIT_TO_MS[unit];
+  return Number(amount) * UNIT_TO_MS[unit as DurationUnit];
 }

@@ -1,4 +1,21 @@
-import { durationToMs } from './duration.util';
+import { durationToMs, DurationString, parseDuration } from './duration.util';
+
+describe('parseDuration', () => {
+  it.each([
+    ['500ms', '500ms'],
+    ['30s', '30s'],
+    ['15M', '15m'],
+    ['  12H  ', '12h'],
+    ['60', '60'],
+  ])('normalizes %p to %p', (input, expected) => {
+    const duration: DurationString = parseDuration(input);
+    expect(duration).toBe(expected);
+  });
+
+  it.each(['', 'soon', '-5m', '5 m', 'm15'])('rejects %p', (input) => {
+    expect(() => parseDuration(input)).toThrow(/Invalid duration/);
+  });
+});
 
 describe('durationToMs', () => {
   it.each([
