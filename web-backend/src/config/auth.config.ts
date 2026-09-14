@@ -1,5 +1,5 @@
 import { registerAs } from '@nestjs/config';
-import { durationToMs } from '../common/utils/duration.util';
+import { durationToMs, parseDuration } from '../common/utils/duration.util';
 import { DEFAULT_AUTH_COOKIE_NAME } from './defaults';
 
 export const AUTH_CONFIG_KEY = 'auth';
@@ -10,7 +10,7 @@ export const AUTH_CONFIG_KEY = 'auth';
  * never drift apart.
  */
 export const authConfig = registerAs(AUTH_CONFIG_KEY, () => {
-  const expiresIn = process.env.AUTH_TOKEN_EXPIRES_IN ?? '1d';
+  const expiresIn = parseDuration(process.env.AUTH_TOKEN_EXPIRES_IN ?? '1d');
   const isProduction = process.env.NODE_ENV === 'production';
 
   return {

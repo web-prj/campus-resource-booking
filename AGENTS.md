@@ -14,7 +14,7 @@ The project proposal is in `docs/Campus_Resource_Booking_Project_Proposal_EN.doc
 ## Repository layout
 
 - `web-frontend/` — Next.js 16, React 19, TypeScript, App Router. Runs on port `18321`.
-- `web-backend/` — NestJS 10, TypeORM, PostgreSQL. API runs on port `18320` under `/api`.
+- `web-backend/` — NestJS 11, TypeORM, PostgreSQL. API runs on port `18320` under `/api`.
 - `.pi/skills/frontend-design/SKILL.md` — project-specific USTH frontend design guidance.
 - `docs/` — project proposal and supporting documentation.
 

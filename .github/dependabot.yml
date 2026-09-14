@@ -27,9 +27,6 @@ updates:
     ignore:
       - dependency-name: "*"
         update-types: ["version-update:semver-major"]
-      # NestJS 10's mapped-types package supports class-validator through 0.14.
-      - dependency-name: "class-validator"
-        versions: [">=0.15.0"]
     groups:
       backend-minor-and-patch:
         patterns: ["*"]

@@ -5,7 +5,7 @@ A full-stack USTH application for finding, reserving, approving, and managing un
 ## Repository structure
 
 - `web-frontend/` — Next.js 16 and React 19, served on port `18321`.
-- `web-backend/` — NestJS 10, TypeORM, and PostgreSQL, served on port `18320` under `/api`.
+- `web-backend/` — NestJS 11, TypeORM, and PostgreSQL, served on port `18320` under `/api`.
 - `docs/` — project proposal and supporting documentation.
 - `compose.yaml` — combined PostgreSQL, backend, and frontend stack.
 - `Dockerfile` — multi-target build for both applications.
