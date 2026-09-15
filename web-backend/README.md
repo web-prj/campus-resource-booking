@@ -141,8 +141,9 @@ const me = await fetch('http://localhost:18320/api/auth/me', {
 
 ### Cross-site deployments
 
-When the frontend is on a different site than the API, set
-`AUTH_COOKIE_SAME_SITE=none` and `AUTH_COOKIE_SECURE=true` (HTTPS required).
+Serve the frontend and API from the same site. Cross-site session cookies
+(`SameSite=None`) are intentionally rejected until unsafe requests have
+dedicated CSRF protection.
 Startup validation rejects `none` without `secure`, because browsers silently
 discard such cookies.
 
@@ -186,6 +187,8 @@ src/
 ├── config/                # Namespaced, typed, validated configuration
 ├── database/              # TypeORM setup, data source, migrations
 ├── health/                # Health-check endpoint
+├── resources/             # Catalog, discovery, schedules, and closures
+├── bookings/              # Booking requests and overlap enforcement
 ├── throttler/             # Rate-limit configuration
 ├── users/                 # User entity, roles, persistence
 ├── app.module.ts          # Root module, global guards
@@ -207,7 +210,7 @@ list.
 | `AUTH_JWT_SECRET`       | —                | Signing key, minimum 32 chars (required) |
 | `AUTH_TOKEN_EXPIRES_IN` | `1d`             | Token _and_ cookie lifetime              |
 | `AUTH_COOKIE_NAME`      | `access_token`   | Session cookie name                      |
-| `AUTH_COOKIE_SAME_SITE` | `lax`            | `lax`, `strict`, or `none`               |
+| `AUTH_COOKIE_SAME_SITE` | `lax`            | `lax` or `strict`                         |
 | `AUTH_COOKIE_SECURE`    | prod: `true`     | HTTPS-only cookie                        |
 | `AUTH_BCRYPT_ROUNDS`    | `12`             | Password hashing cost                    |
 | `CORS_ORIGINS`          | `localhost:18321` | Comma-separated allowed origins          |

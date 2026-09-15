@@ -51,6 +51,28 @@ describe('Auth (e2e)', () => {
         .expect(400);
     });
 
+    it('rejects an overlong university email with 400', async () => {
+      await api()
+        .post('/api/auth/register')
+        .send({
+          email: `${'a'.repeat(244)}@usth.edu.vn`,
+          password: PASSWORD,
+          fullName: FULL_NAME,
+        })
+        .expect(400);
+    });
+
+    it('rejects null bytes in persisted registration text with 400', async () => {
+      await api()
+        .post('/api/auth/register')
+        .send({
+          email: `null.${Date.now()}@usth.edu.vn`,
+          password: PASSWORD,
+          fullName: 'Campus\u0000Student',
+        })
+        .expect(400);
+    });
+
     it('rejects a password shorter than 8 chars with 400', async () => {
       await api()
         .post('/api/auth/register')
@@ -135,6 +157,13 @@ describe('Auth (e2e)', () => {
   });
 
   describe('POST /api/auth/login', () => {
+    it('rejects an overlong university email with 400', async () => {
+      await api()
+        .post('/api/auth/login')
+        .send({ email: `${'a'.repeat(244)}@usth.edu.vn`, password: PASSWORD })
+        .expect(400);
+    });
+
     it('rejects a password longer than 72 UTF-8 bytes with 400', async () => {
       await api()
         .post('/api/auth/login')

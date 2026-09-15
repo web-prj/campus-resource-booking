@@ -29,12 +29,11 @@ export const authConfig = registerAs(AUTH_CONFIG_KEY, () => {
         ? process.env.AUTH_COOKIE_SECURE === 'true'
         : isProduction,
       /**
-       * `lax` blocks the cookie on cross-site POST/PUT/DELETE, which covers the
-       * common CSRF vectors while keeping top-level navigation working. Use
-       * `none` (with HTTPS) only when the frontend sits on another site.
+       * Cross-site cookies are intentionally unsupported until unsafe methods
+       * have dedicated CSRF protection.
        */
       sameSite: (process.env.AUTH_COOKIE_SAME_SITE ?? 'lax') as
-        'lax' | 'strict' | 'none',
+        'lax' | 'strict',
       path: '/',
       domain: process.env.AUTH_COOKIE_DOMAIN || undefined,
     },

@@ -43,15 +43,15 @@ export default async function RegisterPage({ searchParams }: RegisterPageProps) 
             </p>
             <h1 id="register-showcase-title">Plan campus time around what you need.</h1>
             <p>
-              Create one student account to search rooms, request laboratories,
-              reserve equipment, and follow every booking status.
+              Create one student account to search rooms, laboratories, and
+              equipment. Booking and availability steps will follow.
             </p>
           </div>
 
           <div className="login-resource-stack" aria-label="Campus resource types">
             <div className="login-resource-card login-resource-card--first">
               <span><RoomIcon /></span>
-              <div><strong>Study rooms</strong><small>Compare capacity and time slots</small></div>
+              <div><strong>Study rooms</strong><small>Compare capacity and location</small></div>
               <CheckIcon />
             </div>
             <div className="login-resource-card login-resource-card--second">
@@ -61,7 +61,7 @@ export default async function RegisterPage({ searchParams }: RegisterPageProps) 
             </div>
             <div className="login-resource-card login-resource-card--third">
               <span><EquipmentIcon /></span>
-              <div><strong>Equipment</strong><small>Track collection and return</small></div>
+              <div><strong>Equipment</strong><small>Review collection points</small></div>
               <CheckIcon />
             </div>
           </div>

@@ -10,6 +10,7 @@
 # Test and tooling output
 **/coverage/
 **/.nyc_output/
+**/.playwright-cli/
 **/*.tsbuildinfo
 **/next-env.d.ts
 *.log

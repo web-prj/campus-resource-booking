@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Campus Resource Booking">
+  <rect width="64" height="64" rx="14" fill="#2A3C95"/>
+  <path d="M16 27 32 17l16 10v22H16V27Z" fill="#fff"/>
+  <path d="M13 27 32 15l19 12-3 5-16-10-16 10-3-5Z" fill="#EC2227"/>
+  <path d="M26 33h12v16H26z" fill="#2A3C95"/>
+  <circle cx="35" cy="41" r="1.5" fill="#fff"/>
+</svg>

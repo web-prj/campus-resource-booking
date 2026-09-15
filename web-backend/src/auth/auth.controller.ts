@@ -8,6 +8,7 @@ import {
   Res,
 } from '@nestjs/common';
 import {
+  ApiBadRequestResponse,
   ApiConflictResponse,
   ApiCookieAuth,
   ApiCreatedResponse,
@@ -45,6 +46,7 @@ export class AuthController {
   @StrictRateLimit()
   @ApiOperation({ summary: 'Create a student account and start a session' })
   @ApiCreatedResponse({ type: UserResponseDto })
+  @ApiBadRequestResponse({ description: 'Invalid registration details' })
   @ApiConflictResponse({ description: 'Email already registered' })
   async register(
     @Body() dto: RegisterDto,
@@ -59,6 +61,7 @@ export class AuthController {
   @StrictRateLimit()
   @ApiOperation({ summary: 'Exchange credentials for a session cookie' })
   @ApiOkResponse({ type: UserResponseDto })
+  @ApiBadRequestResponse({ description: 'Invalid login details' })
   @ApiUnauthorizedResponse({ description: 'Invalid email or password' })
   async login(
     @Body() dto: LoginDto,
@@ -72,6 +75,7 @@ export class AuthController {
   @ApiCookieAuth()
   @ApiOperation({ summary: 'Clear the session cookie' })
   @ApiNoContentResponse({ description: 'Session cookie cleared' })
+  @ApiUnauthorizedResponse({ description: 'Authentication required' })
   logout(@Res({ passthrough: true }) response: Response): void {
     this.authCookieService.clear(response);
   }
@@ -80,6 +84,7 @@ export class AuthController {
   @ApiCookieAuth()
   @ApiOperation({ summary: 'Return the authenticated user' })
   @ApiOkResponse({ type: UserResponseDto })
+  @ApiUnauthorizedResponse({ description: 'Authentication required' })
   me(@CurrentUser() user: User): UserResponseDto {
     return UserResponseDto.fromEntity(user);
   }

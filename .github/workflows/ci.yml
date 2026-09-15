@@ -121,5 +121,7 @@ jobs:
         run: npm ci
       - name: Apply database migrations
         run: npm run migration:run
+      - name: Verify latest migration rollback
+        run: npm run migration:revert && npm run migration:run
       - name: Run end-to-end tests
         run: npm run test:e2e -- --runInBand

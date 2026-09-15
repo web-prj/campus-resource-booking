@@ -5,12 +5,15 @@ import {
   TrimString,
 } from '../../common/decorators/normalize.decorator';
 import { IsStudentEmail } from '../../common/validators/is-student-email.validator';
+import { IsWithoutNullByte } from '../../common/validators/is-without-null-byte.validator';
 import { MaxUtf8ByteLength } from '../../common/validators/max-utf8-byte-length.validator';
 
 export class RegisterDto {
   @ApiProperty({ example: 'nam.tran@usth.edu.vn' })
   @NormalizeEmail()
   @IsStudentEmail()
+  @IsWithoutNullByte()
+  @MaxLength(255)
   email: string;
 
   @ApiProperty({ example: 'password123', minLength: 8, maxLength: 72 })
@@ -22,6 +25,7 @@ export class RegisterDto {
   @ApiProperty({ example: 'Nam Tran' })
   @TrimString()
   @IsString()
+  @IsWithoutNullByte()
   @MinLength(1)
   @MaxLength(120)
   fullName: string;

@@ -11,6 +11,7 @@ export const metadata: Metadata = {
 export default async function DashboardPage() {
   const user = await getCurrentUser();
   if (!user) redirect("/login?next=/dashboard");
+  if (user.role === "admin") redirect("/admin/resources");
 
   return <StudentDashboard user={user} />;
 }

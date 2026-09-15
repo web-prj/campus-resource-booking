@@ -32,9 +32,7 @@ export const envValidationSchema = Joi.object({
   AUTH_JWT_SECRET: Joi.string().min(32).required(),
   AUTH_TOKEN_EXPIRES_IN: Joi.string().pattern(DURATION).default('1d'),
   AUTH_COOKIE_NAME: Joi.string().default(DEFAULT_AUTH_COOKIE_NAME),
-  AUTH_COOKIE_SAME_SITE: Joi.string()
-    .valid('lax', 'strict', 'none')
-    .default('lax'),
+  AUTH_COOKIE_SAME_SITE: Joi.string().valid('lax', 'strict').default('lax'),
   AUTH_COOKIE_DOMAIN: Joi.string().allow('').optional(),
   AUTH_COOKIE_SECURE: Joi.boolean().optional(),
   AUTH_BCRYPT_ROUNDS: Joi.number().integer().min(10).max(15).default(12),
@@ -54,10 +52,20 @@ export const envValidationSchema = Joi.object({
     });
   }
 
-  if (value.AUTH_COOKIE_SAME_SITE === 'none' && !secure) {
+  if (value.NODE_ENV !== 'development' && value.DB_SYNCHRONIZE) {
     return helpers.message({
       custom:
-        'AUTH_COOKIE_SAME_SITE=none requires AUTH_COOKIE_SECURE=true; browsers reject the cookie otherwise.',
+        'DB_SYNCHRONIZE=true is allowed only in development; use reviewed migrations elsewhere.',
+    });
+  }
+
+  if (
+    value.NODE_ENV === 'production' &&
+    value.AUTH_JWT_SECRET === 'change-me-in-production-min-32-characters-long'
+  ) {
+    return helpers.message({
+      custom:
+        'NODE_ENV=production requires a generated AUTH_JWT_SECRET, not the example placeholder.',
     });
   }
 
