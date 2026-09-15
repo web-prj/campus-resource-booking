@@ -74,7 +74,14 @@ export async function getResourceDirectory(
   const page = parseResourcePage(resourceResponse.body);
   const buildings = parseBuildings(buildingResponse.body);
 
-  if (!page || !buildings) {
+  const requestedPage = filters.page ?? 1;
+  if (
+    !page ||
+    !buildings ||
+    page.page !== requestedPage ||
+    page.pageSize !== 9 ||
+    page.items.some((resource) => resource.status !== "active")
+  ) {
     throw new Error("The resource service returned invalid discovery data.");
   }
 
@@ -111,7 +118,7 @@ export async function getResourceDetail(
   if (response.status === 404) return null;
 
   const resource = parseResource(response.body);
-  if (!resource) {
+  if (!resource || resource.id !== id || resource.status !== "active") {
     throw new Error("The resource service returned invalid resource data.");
   }
   return resource;

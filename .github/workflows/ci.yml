@@ -123,5 +123,7 @@ jobs:
         run: npm run migration:run
       - name: Verify latest migration rollback
         run: npm run migration:revert && npm run migration:run
+      - name: Verify entities match the migrated schema
+        run: npm run typeorm -- schema:log | tee /tmp/schema.log && grep -q "Your schema is up to date" /tmp/schema.log
       - name: Run end-to-end tests
         run: npm run test:e2e -- --runInBand

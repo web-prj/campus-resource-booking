@@ -28,11 +28,9 @@ export default async function ResourcesPage({
   const filters = normalizeDiscoveryFilters(await searchParams);
   const directory = await getResourceDirectory(filters);
 
-  if (
-    directory.page.totalPages > 0 &&
-    directory.page.page > directory.page.totalPages
-  ) {
-    redirect(discoveryHref(filters, { page: directory.page.totalPages }));
+  const lastPage = Math.max(1, directory.page.totalPages);
+  if (directory.page.page > lastPage) {
+    redirect(discoveryHref(filters, { page: lastPage }));
   }
 
   return <ResourceDirectory user={user} filters={filters} {...directory} />;

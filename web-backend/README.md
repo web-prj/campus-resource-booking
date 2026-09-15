@@ -143,9 +143,8 @@ const me = await fetch('http://localhost:18320/api/auth/me', {
 
 Serve the frontend and API from the same site. Cross-site session cookies
 (`SameSite=None`) are intentionally rejected until unsafe requests have
-dedicated CSRF protection.
-Startup validation rejects `none` without `secure`, because browsers silently
-discard such cookies.
+dedicated CSRF protection. Startup accepts only `lax` or `strict`, and
+production also requires secure HTTPS cookies.
 
 ### Protecting routes
 

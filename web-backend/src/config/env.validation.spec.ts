@@ -92,10 +92,12 @@ describe('envValidationSchema', () => {
     expect(error?.message).toMatch(/generated AUTH_JWT_SECRET/);
   });
 
-  it('rejects a malformed token lifetime', () => {
-    expect(
-      validate({ ...baseEnv, AUTH_TOKEN_EXPIRES_IN: 'soon' }).error,
-    ).toBeDefined();
+  it('rejects malformed, zero, and numerically unsafe token lifetimes', () => {
+    for (const lifetime of ['soon', '0', '0s', '999999999999999999999d']) {
+      expect(
+        validate({ ...baseEnv, AUTH_TOKEN_EXPIRES_IN: lifetime }).error,
+      ).toBeDefined();
+    }
     expect(
       validate({ ...baseEnv, AUTH_TOKEN_EXPIRES_IN: '7d' }).error,
     ).toBeUndefined();

@@ -57,11 +57,12 @@ describe("admin resource browser API", () => {
   });
 
   it("creates a resource with cookie credentials", async () => {
+    const created = { ...resource, amenities: [] };
     const request = vi
       .fn<typeof fetch>()
-      .mockResolvedValue(response(resource, 201));
+      .mockResolvedValue(response(created, 201));
 
-    await expect(createResource(input, request)).resolves.toEqual(resource);
+    await expect(createResource(input, request)).resolves.toEqual(created);
     expect(request).toHaveBeenCalledWith(
       "http://localhost:18320/api/admin/resources",
       expect.objectContaining({
@@ -174,7 +175,16 @@ describe("admin resource browser API", () => {
       ...resource,
       id: "20000000-0000-4000-8000-000000000002",
     };
+    const wrongDetails = { ...resource, name: "Different resource" };
 
+    await expect(
+      createResource(
+        input,
+        vi
+          .fn<typeof fetch>()
+          .mockResolvedValue(response({ ...wrongDetails, amenities: [] }, 201)),
+      ),
+    ).rejects.toMatchObject({ code: "unexpected" });
     await expect(
       updateResource(
         resource.id,
@@ -183,10 +193,35 @@ describe("admin resource browser API", () => {
       ),
     ).rejects.toMatchObject({ code: "unexpected" });
     await expect(
+      updateResource(
+        resource.id,
+        input,
+        vi.fn<typeof fetch>().mockResolvedValue(response(wrongDetails)),
+      ),
+    ).rejects.toMatchObject({ code: "unexpected" });
+    await expect(
       updateResourceStatus(
         resource.id,
         "maintenance",
         vi.fn<typeof fetch>().mockResolvedValue(response(resource)),
+      ),
+    ).rejects.toMatchObject({ code: "unexpected" });
+  });
+
+  it("rejects a valid closure response outside the submitted date and reason", async () => {
+    const closure = {
+      id: "40000000-0000-4000-8000-000000000001",
+      resourceId: resource.id,
+      date: "2026-09-19",
+      reason: "Different reason",
+      createdAt: "2026-09-01T00:00:00.000Z",
+    };
+
+    await expect(
+      createResourceClosure(
+        resource.id,
+        { date: "2026-09-18", reason: "Campus maintenance" },
+        vi.fn<typeof fetch>().mockResolvedValue(response(closure, 201)),
       ),
     ).rejects.toMatchObject({ code: "unexpected" });
   });

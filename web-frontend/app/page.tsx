@@ -64,9 +64,9 @@ const workflow = [
   },
   {
     number: "03",
-    title: "Follow every status",
+    title: "Know the request outcome",
     description:
-      "See pending and confirmed requests, check in, cancel, and revisit booking history.",
+      "See whether the selected resource is confirmed immediately or awaiting staff approval.",
     icon: StatusIcon,
   },
 ] as const;
@@ -76,22 +76,22 @@ const roleCards = [
     role: "Students",
     title: "Less searching. More doing.",
     description:
-      "Book the space or equipment your work needs, then keep every request in one place.",
-    tags: ["Search", "Book", "Check in"],
+      "Search operational availability and send a conflict-checked booking request.",
+    tags: ["Search", "Availability", "Request"],
   },
   {
     role: "Staff",
-    title: "Keep campus use moving.",
+    title: "Approval tools are planned next.",
     description:
-      "Review requests, confirm arrivals and check-outs, and resolve operational issues.",
-    tags: ["Approve", "Confirm", "Resolve"],
+      "The next workflow will add pending-request review before later check-in operations.",
+    tags: ["Planned review", "Approval", "Operations"],
   },
   {
     role: "Administrators",
-    title: "See the whole system.",
+    title: "Keep resources operational.",
     description:
-      "Manage rooms, equipment, and users while monitoring demand and utilization.",
-    tags: ["Manage", "Measure", "Improve"],
+      "Manage resource details, schedules, closures, approval rules, and status.",
+    tags: ["Catalog", "Schedules", "Closures"],
   },
 ] as const;
 
@@ -135,7 +135,7 @@ export default function HomePage() {
                   <CheckIcon /> Campus access
                 </span>
                 <span>
-                  <CheckIcon /> Status tracking
+                  <CheckIcon /> Approval visibility
                 </span>
               </div>
             </div>
@@ -267,8 +267,8 @@ export default function HomePage() {
                 <li>
                   <span><ShieldCheckIcon /></span>
                   <div>
-                    <strong>Know each request’s real status</strong>
-                    <p>Pending, confirmed, checked in, cancelled, or complete.</p>
+                    <strong>Know the immediate request status</strong>
+                    <p>Approval-required requests are pending; others confirm immediately.</p>
                   </div>
                 </li>
               </ul>

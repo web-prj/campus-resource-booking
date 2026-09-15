@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { User } from "@/features/auth/types";
@@ -73,6 +74,13 @@ export function BookingRequestForm({
     }
   }
 
+  const bookingHref = `/resources/${input.resourceId}?date=${encodeURIComponent(
+    input.date,
+  )}&startTime=${encodeURIComponent(input.startTime)}&endTime=${encodeURIComponent(
+    input.endTime,
+  )}`;
+  const signInHref = `/login?next=${encodeURIComponent(bookingHref)}`;
+
   return (
     <section
       className={styles.request}
@@ -117,6 +125,10 @@ export function BookingRequestForm({
         <button type="button" onClick={() => router.refresh()}>
           Refresh availability
         </button>
+      ) : errorCode === "session" ? (
+        <Link className={styles.sessionLink} href={signInHref}>
+          Sign in again
+        </Link>
       ) : (
         <button type="button" disabled={isSubmitting} onClick={() => void submit()}>
           {isSubmitting ? "Sending request…" : "Send booking request"}

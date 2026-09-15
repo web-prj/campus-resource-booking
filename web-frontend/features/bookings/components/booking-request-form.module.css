@@ -73,7 +73,8 @@
   font-weight: 760;
 }
 
-.request > button {
+.request > button,
+.sessionLink {
   min-height: 48px;
   padding: 0 18px;
   color: var(--white);
@@ -85,7 +86,15 @@
   font-weight: 780;
 }
 
-.request > button:hover:not(:disabled) {
+.sessionLink {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+}
+
+.request > button:hover:not(:disabled),
+.sessionLink:hover {
   background: var(--usth-blue-dark);
 }
 
@@ -95,6 +104,7 @@
 }
 
 .request > button:focus-visible,
+.sessionLink:focus-visible,
 .error:focus {
   outline: 3px solid rgba(42, 60, 149, 0.2);
   outline-offset: 2px;
@@ -152,7 +162,8 @@
     grid-template-columns: 1fr;
   }
 
-  .request > button {
+  .request > button,
+  .sessionLink {
     width: 100%;
   }
 }

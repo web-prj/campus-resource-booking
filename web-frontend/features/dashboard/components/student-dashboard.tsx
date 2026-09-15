@@ -248,7 +248,7 @@ export function StudentDashboard({ user }: StudentDashboardProps) {
                     <h2 id="bookings-title">Your next reservation</h2>
                   </div>
                   <span className={styles.connectionStatus}>
-                    API connection pending
+                    History connection pending
                   </span>
                 </div>
                 <div className={styles.emptyBooking}>
@@ -256,11 +256,11 @@ export function StudentDashboard({ user }: StudentDashboardProps) {
                     <CalendarIcon />
                   </span>
                   <div>
-                    <h3>No booking data is connected yet</h3>
+                    <h3>Booking history is not connected yet</h3>
                     <p>
-                      Once booking services are available, your next
-                      reservation, approval status, and check-in action will
-                      appear here.
+                      Once booking history is available, your next reservation,
+                      approval status, and later check-in action will appear
+                      here.
                     </p>
                   </div>
                   <Link href="/resources">

@@ -115,6 +115,30 @@ describe("BookingRequestForm", () => {
     },
   );
 
+  it("offers safe sign-in recovery when the session expires", async () => {
+    mockedCreate.mockRejectedValue(
+      new BookingRequestError(
+        "session",
+        "Your session has ended. Sign in again before sending this request.",
+      ),
+    );
+    renderForm();
+
+    await userEvent.click(
+      screen.getByRole("button", { name: "Send booking request" }),
+    );
+
+    const alert = await screen.findByRole("alert");
+    await waitFor(() => expect(alert).toHaveFocus());
+    expect(screen.getByRole("link", { name: "Sign in again" })).toHaveAttribute(
+      "href",
+      "/login?next=%2Fresources%2F20000000-0000-4000-8000-000000000001%3Fdate%3D2099-01-05%26startTime%3D09%253A00%26endTime%3D10%253A00",
+    );
+    expect(
+      screen.queryByRole("button", { name: "Send booking request" }),
+    ).not.toBeInTheDocument();
+  });
+
   it("focuses an actionable conflict and refreshes availability", async () => {
     mockedCreate.mockRejectedValue(
       new BookingRequestError(

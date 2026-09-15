@@ -1,4 +1,5 @@
 import * as Joi from 'joi';
+import { durationToMs } from '../common/utils/duration.util';
 import {
   DEFAULT_API_PREFIX,
   DEFAULT_AUTH_COOKIE_NAME,
@@ -30,7 +31,18 @@ export const envValidationSchema = Joi.object({
   DB_LOGGING: Joi.boolean().default(false),
 
   AUTH_JWT_SECRET: Joi.string().min(32).required(),
-  AUTH_TOKEN_EXPIRES_IN: Joi.string().pattern(DURATION).default('1d'),
+  AUTH_TOKEN_EXPIRES_IN: Joi.string()
+    .pattern(DURATION)
+    .custom((value: string, helpers) => {
+      const milliseconds = durationToMs(value);
+      return Number.isSafeInteger(milliseconds) && milliseconds > 0
+        ? value
+        : helpers.message({
+            custom:
+              'AUTH_TOKEN_EXPIRES_IN must be a positive, safely representable duration.',
+          });
+    })
+    .default('1d'),
   AUTH_COOKIE_NAME: Joi.string().default(DEFAULT_AUTH_COOKIE_NAME),
   AUTH_COOKIE_SAME_SITE: Joi.string().valid('lax', 'strict').default('lax'),
   AUTH_COOKIE_DOMAIN: Joi.string().allow('').optional(),
@@ -41,8 +53,8 @@ export const envValidationSchema = Joi.object({
   THROTTLE_LIMIT: Joi.number().integer().positive().default(100),
   AUTH_THROTTLE_LIMIT: Joi.number().integer().positive().default(10),
 }).custom((value, helpers) => {
-  // Browsers silently drop a `SameSite=None` cookie that is not `Secure`, which
-  // surfaces as a mysteriously broken login rather than a config error.
+  // Production session cookies must stay HTTPS-only. Cross-site cookies are
+  // rejected by the field schema until unsafe methods have CSRF protection.
   const secure = value.AUTH_COOKIE_SECURE ?? value.NODE_ENV === 'production';
 
   if (value.NODE_ENV === 'production' && !secure) {

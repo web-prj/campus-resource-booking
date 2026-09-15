@@ -52,15 +52,56 @@ function errorCodeFor(error: ApiError): ResourceMutationErrorCode {
   return "unexpected";
 }
 
+function sameValues<T>(actual: T[], expected: T[]): boolean {
+  return (
+    actual.length === expected.length &&
+    actual.every((value, index) => value === expected[index])
+  );
+}
+
+function matchesResourceInput(
+  resource: Resource,
+  input: ResourceInput,
+  applyCreateDefaults: boolean,
+): boolean {
+  const amenities = input.amenities?.map((item) => item.trim().toLowerCase());
+  const operatingDays = input.operatingDays;
+  return (
+    resource.code === input.code.trim().toUpperCase() &&
+    resource.name === input.name.trim() &&
+    resource.description === (input.description.trim() || null) &&
+    resource.type === input.type &&
+    resource.capacity === input.capacity &&
+    resource.location === input.location.trim() &&
+    resource.building.id === input.buildingId &&
+    (amenities !== undefined
+      ? sameValues(resource.amenities, amenities)
+      : !applyCreateDefaults || resource.amenities.length === 0) &&
+    (input.requiresApproval !== undefined
+      ? resource.requiresApproval === input.requiresApproval
+      : !applyCreateDefaults || resource.requiresApproval === false) &&
+    (operatingDays !== undefined
+      ? sameValues(resource.operatingDays, operatingDays)
+      : !applyCreateDefaults ||
+        sameValues(resource.operatingDays, [1, 2, 3, 4, 5, 6])) &&
+    (input.opensAt !== undefined
+      ? resource.opensAt === input.opensAt
+      : !applyCreateDefaults || resource.opensAt === "08:00") &&
+    (input.closesAt !== undefined
+      ? resource.closesAt === input.closesAt
+      : !applyCreateDefaults || resource.closesAt === "18:00")
+  );
+}
+
 async function mutateResource(
   path: string,
   init: RequestInit,
   request: typeof fetch,
-  validate?: (resource: Resource) => boolean,
+  validate: (resource: Resource) => boolean,
 ): Promise<Resource> {
   try {
     const resource = parseResource(await browserRequest(path, init, request));
-    if (!resource || (validate && !validate(resource))) {
+    if (!resource || !validate(resource)) {
       throw new ResourceMutationError("unexpected", messages.unexpected);
     }
     return resource;
@@ -82,6 +123,9 @@ export function createResource(
     "/admin/resources",
     { method: "POST", body: JSON.stringify(input) },
     request,
+    (resource) =>
+      resource.status === "active" &&
+      matchesResourceInput(resource, input, true),
   );
 }
 
@@ -94,7 +138,8 @@ export function updateResource(
     `/admin/resources/${id}`,
     { method: "PATCH", body: JSON.stringify(input) },
     request,
-    (resource) => resource.id === id,
+    (resource) =>
+      resource.id === id && matchesResourceInput(resource, input, false),
   );
 }
 
@@ -162,7 +207,12 @@ export async function createResourceClosure(
         request,
       ),
     );
-    if (!closure || closure.resourceId !== resourceId) {
+    if (
+      !closure ||
+      closure.resourceId !== resourceId ||
+      closure.date !== input.date ||
+      closure.reason !== input.reason.trim()
+    ) {
       throw new ResourceMutationError("unexpected", messages.unexpected);
     }
     return closure;

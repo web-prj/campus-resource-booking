@@ -302,13 +302,19 @@ export function parseResourcePage(value: unknown): ResourcePage | null {
     (totalPages as number) < 0 ||
     (totalPages as number) !==
       Math.ceil((total as number) / (pageSize as number)) ||
-    parsedItems.length > (pageSize as number) ||
-    parsedItems.length > (total as number) ||
-    ((total as number) === 0 && parsedItems.length !== 0) ||
     ((totalPages as number) > 0 && (page as number) > (totalPages as number))
   ) {
     return null;
   }
+
+  const expectedItems =
+    (total as number) === 0
+      ? 0
+      : Math.min(
+          pageSize as number,
+          (total as number) - ((page as number) - 1) * (pageSize as number),
+        );
+  if (parsedItems.length !== expectedItems) return null;
 
   return {
     items: parsedItems,

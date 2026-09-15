@@ -161,6 +161,8 @@ describe("resource response schemas", () => {
     { items: [resource], total: 10, page: 0, pageSize: 9, totalPages: 2 },
     { items: [resource], total: 10, page: 1, pageSize: 25, totalPages: 1 },
     { items: [resource], total: 10, page: 1, pageSize: 9, totalPages: 3 },
+    { items: [resource], total: 10, page: 1, pageSize: 9, totalPages: 2 },
+    { items: [], total: 10, page: 2, pageSize: 9, totalPages: 2 },
     { items: [resource], total: 0, page: 1, pageSize: 9, totalPages: 0 },
     { items: Array(10).fill(resource), total: 10, page: 1, pageSize: 9, totalPages: 2 },
     { items: [resource], total: 1, page: 2, pageSize: 9, totalPages: 1 },

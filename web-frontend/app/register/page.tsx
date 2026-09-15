@@ -44,7 +44,8 @@ export default async function RegisterPage({ searchParams }: RegisterPageProps) 
             <h1 id="register-showcase-title">Plan campus time around what you need.</h1>
             <p>
               Create one student account to search rooms, laboratories, and
-              equipment. Booking and availability steps will follow.
+              equipment, check operational availability, and send booking
+              requests.
             </p>
           </div>
 
