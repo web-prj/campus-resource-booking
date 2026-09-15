@@ -4,10 +4,12 @@ import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerGuard } from '@nestjs/throttler';
 import { AuthModule } from './auth/auth.module';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
+import { BookingsModule } from './bookings/bookings.module';
 import { RolesGuard } from './auth/guards/roles.guard';
 import { configurations, envValidationSchema } from './config';
 import { DatabaseModule } from './database/database.module';
 import { HealthModule } from './health/health.module';
+import { ResourcesModule } from './resources/resources.module';
 import { ThrottlerConfigModule } from './throttler/throttler.module';
 import { UsersModule } from './users/users.module';
 
@@ -27,6 +29,8 @@ import { UsersModule } from './users/users.module';
     ThrottlerConfigModule,
     HealthModule,
     UsersModule,
+    ResourcesModule,
+    BookingsModule,
     AuthModule,
   ],
   providers: [

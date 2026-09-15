@@ -77,7 +77,9 @@ npm test
 npm run build
 ```
 
-Run targeted tests first when available. For layout changes, smoke-test `/` and `/login` at desktop and mobile widths. A production build is required for routing, metadata, configuration, or deployment-sensitive changes.
+Run targeted tests first when available. A production build is required for routing, metadata, configuration, or deployment-sensitive changes.
+
+After completing every feature with a user-facing interface or flow, review it with the globally installed Microsoft Playwright CLI (`playwright-cli`). Read `~/.agents/skills/playwright-cli/SKILL.md` before use. The review must exercise the real primary flow, not only load the page; cover representative desktop and mobile widths; capture snapshots and screenshots; inspect browser console errors and failed requests; check focus, keyboard access, overflow, readable control sizes, empty/error/loading states when applicable, and reduced-motion behavior; then close the named session. Use authenticated test data for protected routes and remove temporary accounts and records afterward. Treat findings as validation failures: fix them and repeat the relevant review before reporting completion. Do not commit `.playwright-cli/` output.
 
 ## Backend conventions
 
@@ -164,4 +166,5 @@ Before reporting completion:
 3. Run type checks and lint for the affected subproject.
 4. Run the affected build when practical.
 5. For cross-stack changes, validate both sides and smoke-test the user flow.
-6. Report what changed, commands run, results, and any validation that could not be completed.
+6. For every feature with a user-facing interface or flow, complete the mandatory Playwright CLI UI review described above and resolve its findings.
+7. Report what changed, commands run, Playwright CLI review results when applicable, and any validation that could not be completed.

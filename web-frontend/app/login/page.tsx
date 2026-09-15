@@ -45,25 +45,25 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
               Everything you need, one sign-in away.
             </h1>
             <p>
-              Compare availability, reserve with confidence, and keep every
-              campus booking in view.
+              Sign in to search the campus resource directory and review
+              booking rules in one place.
             </p>
           </div>
 
-          <div className="login-resource-stack" aria-label="Available resource types">
+          <div className="login-resource-stack" aria-label="Resource directory preview">
             <div className="login-resource-card login-resource-card--first">
               <span><RoomIcon /></span>
-              <div><strong>Study room A101</strong><small>Open at 10:00</small></div>
+              <div><strong>Study room A101</strong><small>8 places · Main building</small></div>
               <CheckIcon />
             </div>
             <div className="login-resource-card login-resource-card--second">
               <span><LaboratoryIcon /></span>
-              <div><strong>Biology lab B204</strong><small>Approval required</small></div>
-              <span className="login-resource-card__status">Pending</span>
+              <div><strong>Teaching laboratory L201</strong><small>Staff approval required</small></div>
+              <span className="login-resource-card__status">Catalog</span>
             </div>
             <div className="login-resource-card login-resource-card--third">
               <span><EquipmentIcon /></span>
-              <div><strong>Projector kit P-12</strong><small>Available today</small></div>
+              <div><strong>Portable projector 01</strong><small>Collection at equipment desk</small></div>
               <CheckIcon />
             </div>
           </div>

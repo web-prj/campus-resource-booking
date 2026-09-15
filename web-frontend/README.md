@@ -1,6 +1,6 @@
 # Campus Resource Booking — Frontend
 
-A Next.js interface for discovering and booking USTH rooms, laboratories, and equipment. The current slice includes the public landing page, registration and login flows, and a server-verified student dashboard.
+A Next.js interface for discovering and booking USTH rooms, laboratories, and equipment. The current slice includes public authentication, a server-verified student dashboard, resource discovery and details, booking-aware availability, student booking requests, and admin resource management.
 
 ## Requirements
 

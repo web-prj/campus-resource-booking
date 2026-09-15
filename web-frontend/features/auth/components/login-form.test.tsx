@@ -26,6 +26,7 @@ describe("LoginForm", () => {
 
     expect(screen.getByText("Enter a valid @usth.edu.vn email address.")).toBeVisible();
     expect(screen.getByText("Enter your password.")).toBeVisible();
+    expect(screen.getByLabelText("USTH email")).toHaveFocus();
     expect(mockedLogin).not.toHaveBeenCalled();
   });
 

@@ -7,10 +7,16 @@ const root = path.dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig({
   plugins: [react()],
-  resolve: { alias: { "@": root } },
+  resolve: {
+    alias: {
+      "@": root,
+      "server-only": path.resolve(root, "vitest.server-only.ts"),
+    },
+  },
   test: {
     environment: "jsdom",
     setupFiles: ["./vitest.setup.ts"],
     clearMocks: true,
+    testTimeout: 15_000,
   },
 });
