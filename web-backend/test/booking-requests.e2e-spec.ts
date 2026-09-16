@@ -3,6 +3,8 @@ import { DataSource } from 'typeorm';
 import * as request from 'supertest';
 import { createTestApp, deleteUsers, findSetCookie } from './utils/test-app';
 
+jest.setTimeout(15_000);
+
 const RUN_ID = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 const RESOURCE_RUN_ID = Date.now().toString(36).slice(-7);
 const STUDENT_ONE_EMAIL = `booking.one.${RUN_ID}@usth.edu.vn`;
@@ -22,6 +24,9 @@ const CLOSURE_DATE = '2099-01-10';
 const CLOSED_DAY = '2099-01-11';
 const AVAILABILITY_DATE = '2099-01-12';
 const DIRECT_SQL_DATE = '2099-01-13';
+const MANAGEMENT_DATE = '2099-01-14';
+const APPROVAL_REVIEW_DATE = '2099-01-15';
+const REJECTION_REVIEW_DATE = '2099-01-16';
 
 describe('Booking requests (e2e)', () => {
   let app: INestApplication;
@@ -333,6 +338,220 @@ describe('Booking requests (e2e)', () => {
       [noApprovalResourceId, CONCURRENT_DATE],
     );
     expect(count).toBe('1');
+  });
+
+  it('lists owned bookings, protects details, and releases cancelled slots', async () => {
+    const created = await api()
+      .post('/api/bookings')
+      .set('Cookie', studentOneCookie)
+      .send({
+        resourceId: noApprovalResourceId,
+        date: MANAGEMENT_DATE,
+        startTime: '13:00',
+        endTime: '15:00',
+      })
+      .expect(201);
+    const bookingId = created.body.id as string;
+
+    const timeline = await api()
+      .get('/api/bookings/mine')
+      .set('Cookie', studentOneCookie)
+      .expect(200);
+    expect(timeline.body.upcoming).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: bookingId,
+          status: 'confirmed',
+          canCancel: true,
+          resource: expect.objectContaining({
+            id: noApprovalResourceId,
+            name: 'Booking CONFIRM',
+          }),
+        }),
+      ]),
+    );
+
+    await api()
+      .get(`/api/bookings/mine/${bookingId}`)
+      .set('Cookie', studentTwoCookie)
+      .expect(404);
+    await api()
+      .patch(`/api/bookings/mine/${bookingId}/cancel`)
+      .set('Cookie', studentTwoCookie)
+      .expect(404);
+
+    const cancelled = await api()
+      .patch(`/api/bookings/mine/${bookingId}/cancel`)
+      .set('Cookie', studentOneCookie)
+      .expect(200);
+    expect(cancelled.body).toMatchObject({
+      id: bookingId,
+      status: 'cancelled',
+      canCancel: false,
+    });
+    expect(cancelled.body.cancelledAt).toEqual(expect.any(String));
+
+    await api()
+      .patch(`/api/bookings/mine/${bookingId}/cancel`)
+      .set('Cookie', studentOneCookie)
+      .expect(409);
+
+    const afterCancellation = await api()
+      .get('/api/bookings/mine')
+      .set('Cookie', studentOneCookie)
+      .expect(200);
+    expect(
+      afterCancellation.body.upcoming.some(
+        (booking: { id: string }) => booking.id === bookingId,
+      ),
+    ).toBe(false);
+    expect(afterCancellation.body.history).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: bookingId, status: 'cancelled' }),
+      ]),
+    );
+
+    const availability = await api()
+      .get(
+        `/api/resources/${noApprovalResourceId}/availability?date=${MANAGEMENT_DATE}`,
+      )
+      .set('Cookie', studentTwoCookie)
+      .expect(200);
+    expect(availability.body.slots).toEqual(
+      expect.arrayContaining([
+        { startTime: '13:00', endTime: '14:00' },
+        { startTime: '14:00', endTime: '15:00' },
+      ]),
+    );
+  });
+
+  it('staff reviews pending requests and rejected slots become available', async () => {
+    const approveRequest = await api()
+      .post('/api/bookings')
+      .set('Cookie', studentOneCookie)
+      .send({
+        resourceId: approvalResourceId,
+        date: APPROVAL_REVIEW_DATE,
+        startTime: '09:00',
+        endTime: '10:00',
+      })
+      .expect(201);
+    const rejectRequest = await api()
+      .post('/api/bookings')
+      .set('Cookie', studentOneCookie)
+      .send({
+        resourceId: approvalResourceId,
+        date: REJECTION_REVIEW_DATE,
+        startTime: '10:00',
+        endTime: '11:00',
+      })
+      .expect(201);
+
+    await api()
+      .get('/api/staff/bookings/pending')
+      .set('Cookie', studentOneCookie)
+      .expect(403);
+    await api()
+      .patch(`/api/staff/bookings/${approveRequest.body.id}/approve`)
+      .set('Cookie', adminCookie)
+      .expect(403);
+
+    const queue = await api()
+      .get('/api/staff/bookings/pending')
+      .set('Cookie', staffCookie)
+      .expect(200);
+    expect(queue.body.items).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: approveRequest.body.id,
+          status: 'pending',
+          requester: expect.objectContaining({ id: studentOneId }),
+          resource: expect.objectContaining({ id: approvalResourceId }),
+        }),
+        expect.objectContaining({ id: rejectRequest.body.id }),
+      ]),
+    );
+
+    const detail = await api()
+      .get(`/api/staff/bookings/${approveRequest.body.id}`)
+      .set('Cookie', staffCookie)
+      .expect(200);
+    expect(detail.body).toMatchObject({
+      id: approveRequest.body.id,
+      status: 'pending',
+      reviewedAt: null,
+      reviewer: null,
+    });
+
+    const schedule = await api()
+      .get(
+        `/api/staff/bookings/resources/${approvalResourceId}/schedule?date=${APPROVAL_REVIEW_DATE}`,
+      )
+      .set('Cookie', staffCookie)
+      .expect(200);
+    expect(schedule.body.bookings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: approveRequest.body.id }),
+      ]),
+    );
+
+    const approved = await api()
+      .patch(`/api/staff/bookings/${approveRequest.body.id}/approve`)
+      .set('Cookie', staffCookie)
+      .expect(200);
+    expect(approved.body).toMatchObject({
+      status: 'confirmed',
+      reviewedAt: expect.any(String),
+      rejectionReason: null,
+      reviewer: expect.objectContaining({ email: STAFF_EMAIL }),
+    });
+    await api()
+      .patch(`/api/staff/bookings/${approveRequest.body.id}/approve`)
+      .set('Cookie', staffCookie)
+      .expect(409);
+
+    await api()
+      .patch(`/api/staff/bookings/${rejectRequest.body.id}/reject`)
+      .set('Cookie', staffCookie)
+      .send({ reason: ' ' })
+      .expect(400);
+    const rejected = await api()
+      .patch(`/api/staff/bookings/${rejectRequest.body.id}/reject`)
+      .set('Cookie', staffCookie)
+      .send({ reason: 'Laboratory reserved for a scheduled practical.' })
+      .expect(200);
+    expect(rejected.body).toMatchObject({
+      status: 'rejected',
+      rejectionReason: 'Laboratory reserved for a scheduled practical.',
+      reviewedAt: expect.any(String),
+      reviewer: expect.objectContaining({ email: STAFF_EMAIL }),
+    });
+
+    const studentTimeline = await api()
+      .get('/api/bookings/mine')
+      .set('Cookie', studentOneCookie)
+      .expect(200);
+    expect(studentTimeline.body.history).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: rejectRequest.body.id,
+          status: 'rejected',
+          canCancel: false,
+          rejectionReason: 'Laboratory reserved for a scheduled practical.',
+        }),
+      ]),
+    );
+
+    const availability = await api()
+      .get(
+        `/api/resources/${approvalResourceId}/availability?date=${REJECTION_REVIEW_DATE}`,
+      )
+      .set('Cookie', studentTwoCookie)
+      .expect(200);
+    expect(availability.body.slots).toContainEqual({
+      startTime: '10:00',
+      endTime: '11:00',
+    });
   });
 
   it('removes occupied slots from availability and interval discovery', async () => {

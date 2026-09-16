@@ -9,6 +9,7 @@ import {
 import { UserRole } from '../enums/user-role.enum';
 
 @Entity('users')
+@Index('IDX_users_role_active', ['role', 'isActive'])
 export class User {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -26,6 +27,9 @@ export class User {
 
   @Column({ type: 'enum', enum: UserRole, default: UserRole.STUDENT })
   role: UserRole;
+
+  @Column({ name: 'is_active', type: 'boolean', default: true })
+  isActive: boolean;
 
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt: Date;

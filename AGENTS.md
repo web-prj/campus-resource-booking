@@ -16,6 +16,7 @@ The project proposal is in `docs/Campus_Resource_Booking_Project_Proposal_EN.doc
 - `web-frontend/` — Next.js 16, React 19, TypeScript, App Router. Runs on port `18321`.
 - `web-backend/` — NestJS 11, TypeORM, PostgreSQL. API runs on port `18320` under `/api`.
 - `.pi/skills/frontend-design/SKILL.md` — project-specific USTH frontend design guidance.
+- `.pi/skills/playwright-cli/SKILL.md` — project-local Microsoft Playwright CLI browser automation guidance.
 - `docs/` — project proposal and supporting documentation.
 
 There is no root application package. Run npm commands from the relevant subproject. Git and Docker Compose are managed at the repository root.
@@ -79,7 +80,7 @@ npm run build
 
 Run targeted tests first when available. A production build is required for routing, metadata, configuration, or deployment-sensitive changes.
 
-After completing every feature with a user-facing interface or flow, review it with the globally installed Microsoft Playwright CLI (`playwright-cli`). Read `~/.agents/skills/playwright-cli/SKILL.md` before use. The review must exercise the real primary flow, not only load the page; cover representative desktop and mobile widths; capture snapshots and screenshots; inspect browser console errors and failed requests; check focus, keyboard access, overflow, readable control sizes, empty/error/loading states when applicable, and reduced-motion behavior; then close the named session. Use authenticated test data for protected routes and remove temporary accounts and records afterward. Treat findings as validation failures: fix them and repeat the relevant review before reporting completion. Do not commit `.playwright-cli/` output.
+After completing every feature with a user-facing interface or flow, review it with the Microsoft Playwright CLI (`playwright-cli`). Read `.pi/skills/playwright-cli/SKILL.md` before use. The review must exercise the real primary flow, not only load the page; cover representative desktop and mobile widths; capture snapshots and screenshots; inspect browser console errors and failed requests; check focus, keyboard access, overflow, readable control sizes, empty/error/loading states when applicable, and reduced-motion behavior; then close the named session. Use authenticated test data for protected routes and remove temporary accounts and records afterward. Treat findings as validation failures: fix them and repeat the relevant review before reporting completion. Do not commit `.playwright-cli/` output.
 
 ## Backend conventions
 

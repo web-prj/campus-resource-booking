@@ -126,7 +126,11 @@ export class ResourcesService {
               AND booking.end_time > :startTime
           )`,
           {
-            blockingStatuses: [BookingStatus.PENDING, BookingStatus.CONFIRMED],
+            blockingStatuses: [
+              BookingStatus.PENDING,
+              BookingStatus.CONFIRMED,
+              BookingStatus.CHECKED_IN,
+            ],
           },
         );
     }
@@ -165,6 +169,7 @@ export class ResourcesService {
       where: [
         { resourceId, date, status: BookingStatus.PENDING },
         { resourceId, date, status: BookingStatus.CONFIRMED },
+        { resourceId, date, status: BookingStatus.CHECKED_IN },
       ],
       order: { startTime: 'ASC' },
     });

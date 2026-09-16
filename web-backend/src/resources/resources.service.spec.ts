@@ -254,7 +254,7 @@ describe('ResourcesService', () => {
     expect(queryBuilder.andWhere).toHaveBeenCalledWith(
       expect.stringContaining('FROM bookings booking'),
       expect.objectContaining({
-        blockingStatuses: ['pending', 'confirmed'],
+        blockingStatuses: ['pending', 'confirmed', 'checked_in'],
       }),
     );
   });
@@ -375,7 +375,7 @@ describe('ResourcesService', () => {
     });
   });
 
-  it('loads pending and confirmed bookings that block availability', async () => {
+  it('loads pending, confirmed, and checked-in bookings that block availability', async () => {
     const bookings = [{ id: 'booking-1' }] as Booking[];
     bookingsRepository.find.mockResolvedValue(bookings);
 
@@ -386,6 +386,7 @@ describe('ResourcesService', () => {
       where: [
         { resourceId: resource.id, date: '2026-09-18', status: 'pending' },
         { resourceId: resource.id, date: '2026-09-18', status: 'confirmed' },
+        { resourceId: resource.id, date: '2026-09-18', status: 'checked_in' },
       ],
       order: { startTime: 'ASC' },
     });

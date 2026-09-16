@@ -119,6 +119,41 @@ describe("AdminResourceManager", () => {
     mockedStatus.mockReset();
   });
 
+  it("shows live admin dashboard summaries", () => {
+    const maintenance: Resource = {
+      ...resource,
+      id: "20000000-0000-4000-8000-000000000002",
+      name: "Laboratory L201",
+      type: "laboratory",
+      status: "maintenance",
+      requiresApproval: true,
+      building: {
+        ...building,
+        id: "10000000-0000-4000-8000-000000000002",
+        code: "LAB",
+        name: "Laboratory Building",
+      },
+    };
+    const inactive: Resource = {
+      ...resource,
+      id: "20000000-0000-4000-8000-000000000003",
+      name: "Projector Kit",
+      type: "equipment",
+      status: "inactive",
+      requiresApproval: true,
+    };
+
+    renderManager([resource, maintenance, inactive]);
+
+    const summary = screen.getByLabelText("Admin dashboard summary");
+    expect(summary).toHaveTextContent("3Total resources");
+    expect(summary).toHaveTextContent("1Active");
+    expect(summary).toHaveTextContent("1In maintenance");
+    expect(summary).toHaveTextContent("1Inactive");
+    expect(summary).toHaveTextContent("2Require approval");
+    expect(summary).toHaveTextContent("2Buildings represented");
+  });
+
   it("shows the catalog and accessible validation messages", async () => {
     renderManager();
     expect(

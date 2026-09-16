@@ -260,8 +260,14 @@ export function AdminResourceManager({
       total: resources.length,
       active: resources.filter((resource) => resource.status === "active")
         .length,
-      attention: resources.filter((resource) => resource.status !== "active")
+      maintenance: resources.filter(
+        (resource) => resource.status === "maintenance",
+      ).length,
+      inactive: resources.filter((resource) => resource.status === "inactive")
         .length,
+      approval: resources.filter((resource) => resource.requiresApproval)
+        .length,
+      buildings: new Set(resources.map((resource) => resource.building.id)).size,
     }),
     [resources],
   );
@@ -495,6 +501,10 @@ export function AdminResourceManager({
     <main className={styles.page}>
       <header className={styles.header}>
         <BrandMark />
+        <nav className={styles.adminNav} aria-label="Administrator sections">
+          <Link href="/admin/resources" aria-current="page">Resources</Link>
+          <Link href="/admin/users">Users</Link>
+        </nav>
         <div className={styles.identity}>
           <span>
             <strong>{user.fullName}</strong>
@@ -537,7 +547,7 @@ export function AdminResourceManager({
           </p>
         )}
 
-        <section className={styles.summary} aria-label="Catalog summary">
+        <section className={styles.summary} aria-label="Admin dashboard summary">
           <p>
             <strong>{counts.total}</strong>
             <span>Total resources</span>
@@ -547,8 +557,20 @@ export function AdminResourceManager({
             <span>Active</span>
           </p>
           <p>
-            <strong>{counts.attention}</strong>
-            <span>Need attention</span>
+            <strong>{counts.maintenance}</strong>
+            <span>In maintenance</span>
+          </p>
+          <p>
+            <strong>{counts.inactive}</strong>
+            <span>Inactive</span>
+          </p>
+          <p>
+            <strong>{counts.approval}</strong>
+            <span>Require approval</span>
+          </p>
+          <p>
+            <strong>{counts.buildings}</strong>
+            <span>Buildings represented</span>
           </p>
         </section>
 

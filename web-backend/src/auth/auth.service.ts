@@ -54,7 +54,7 @@ export class AuthService {
 
     // One message for both failure modes, so a caller cannot probe for
     // registered addresses.
-    if (!user || !passwordMatches) {
+    if (!user || !passwordMatches || !user.isActive) {
       throw new UnauthorizedException('Invalid email or password');
     }
 

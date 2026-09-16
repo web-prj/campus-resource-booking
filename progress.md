@@ -66,47 +66,47 @@ Use this file to track feature completion. Plan implementation details separatel
 
 ### 6. Student booking management
 
-- [ ] Upcoming bookings
-- [ ] Pending booking requests
-- [ ] Booking details
-- [ ] Booking history
-- [ ] Cancel eligible booking
-- [ ] Display booking status clearly
+- [x] Upcoming bookings
+- [x] Pending booking requests
+- [x] Booking details
+- [x] Booking history
+- [x] Cancel eligible booking
+- [x] Display booking status clearly
 
 ### 7. Staff approval workflow
 
-- [ ] Staff dashboard
-- [ ] Pending approval queue
-- [ ] Approve booking request
-- [ ] Reject booking request with a reason
-- [ ] View resource schedule
-- [ ] View booking details
+- [x] Staff dashboard
+- [x] Pending approval queue
+- [x] Approve booking request
+- [x] Reject booking request with a reason
+- [x] View resource schedule
+- [x] View booking details
 
 ### 8. Check-in and check-out
 
-- [ ] Generate a booking check-in code
-- [ ] Student check-in
-- [ ] Staff check-in confirmation
-- [ ] Staff check-out confirmation
-- [ ] Track no-show and completed status
-- [ ] Prevent invalid or repeated check-in
+- [x] Generate a booking check-in code
+- [x] Student check-in
+- [x] Staff check-in confirmation
+- [x] Staff check-out confirmation
+- [x] Track no-show and completed status
+- [x] Prevent invalid or repeated check-in
 
 ### 9. Live dashboard data
 
-- [ ] Connect student dashboard to resource data
-- [ ] Connect student dashboard to availability data
-- [ ] Connect student dashboard to booking data
-- [ ] Remove preview labels when data is live
-- [ ] Add staff dashboard summaries
-- [ ] Add admin dashboard summaries
+- [x] Connect student dashboard to resource data
+- [x] Connect student dashboard to availability data
+- [x] Connect student dashboard to booking data
+- [x] Remove preview labels when data is live
+- [x] Add staff dashboard summaries
+- [x] Add admin dashboard summaries
 
 ### 10. User and role management
 
-- [ ] Admin user list
-- [ ] Search users
-- [ ] Assign staff and admin roles
-- [ ] Activate or deactivate users
-- [ ] Protect role-management actions
+- [x] Admin user list
+- [x] Search users
+- [x] Assign staff and admin roles
+- [x] Activate or deactivate users
+- [x] Protect role-management actions
 
 ### 11. Basic analytics
 
