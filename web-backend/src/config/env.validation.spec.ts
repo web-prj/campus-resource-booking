@@ -38,31 +38,20 @@ describe('envValidationSchema', () => {
     ).toBeDefined();
   });
 
-  it('rejects SameSite=none without Secure, which browsers would discard', () => {
-    const { error } = validate({
-      ...baseEnv,
-      AUTH_COOKIE_SAME_SITE: 'none',
-      AUTH_COOKIE_SECURE: 'false',
-    });
-
-    expect(error?.message).toMatch(/AUTH_COOKIE_SECURE=true/);
+  it('rejects SameSite=none until unsafe requests have CSRF protection', () => {
+    expect(
+      validate({
+        ...baseEnv,
+        AUTH_COOKIE_SAME_SITE: 'none',
+        AUTH_COOKIE_SECURE: 'true',
+      }).error,
+    ).toBeDefined();
   });
 
-  it('allows SameSite=none when Secure is set', () => {
-    const { error } = validate({
-      ...baseEnv,
-      AUTH_COOKIE_SAME_SITE: 'none',
-      AUTH_COOKIE_SECURE: 'true',
-    });
-
-    expect(error).toBeUndefined();
-  });
-
-  it('treats production as secure by default', () => {
+  it('treats production cookies as secure by default', () => {
     const { error } = validate({
       ...baseEnv,
       NODE_ENV: 'production',
-      AUTH_COOKIE_SAME_SITE: 'none',
     });
 
     expect(error).toBeUndefined();
@@ -78,10 +67,37 @@ describe('envValidationSchema', () => {
     expect(error?.message).toMatch(/requires AUTH_COOKIE_SECURE=true/);
   });
 
-  it('rejects a malformed token lifetime', () => {
+  it('rejects schema synchronization outside development', () => {
     expect(
-      validate({ ...baseEnv, AUTH_TOKEN_EXPIRES_IN: 'soon' }).error,
-    ).toBeDefined();
+      validate({ ...baseEnv, NODE_ENV: 'test', DB_SYNCHRONIZE: true }).error
+        ?.message,
+    ).toMatch(/allowed only in development/);
+    expect(
+      validate({ ...baseEnv, NODE_ENV: 'production', DB_SYNCHRONIZE: true })
+        .error?.message,
+    ).toMatch(/allowed only in development/);
+    expect(
+      validate({ ...baseEnv, NODE_ENV: 'development', DB_SYNCHRONIZE: true })
+        .error,
+    ).toBeUndefined();
+  });
+
+  it('rejects the example JWT secret in production', () => {
+    const { error } = validate({
+      ...baseEnv,
+      NODE_ENV: 'production',
+      AUTH_JWT_SECRET: 'change-me-in-production-min-32-characters-long',
+    });
+
+    expect(error?.message).toMatch(/generated AUTH_JWT_SECRET/);
+  });
+
+  it('rejects malformed, zero, and numerically unsafe token lifetimes', () => {
+    for (const lifetime of ['soon', '0', '0s', '999999999999999999999d']) {
+      expect(
+        validate({ ...baseEnv, AUTH_TOKEN_EXPIRES_IN: lifetime }).error,
+      ).toBeDefined();
+    }
     expect(
       validate({ ...baseEnv, AUTH_TOKEN_EXPIRES_IN: '7d' }).error,
     ).toBeUndefined();

@@ -14,6 +14,7 @@ const buildUser = (overrides: Partial<User> = {}): User =>
     passwordHash: '$2b$12$hash',
     fullName: 'Nam Tran',
     role: UserRole.STUDENT,
+    isActive: true,
     createdAt: new Date('2026-01-01T00:00:00Z'),
     updatedAt: new Date('2026-01-01T00:00:00Z'),
     ...overrides,
@@ -115,6 +116,22 @@ describe('AuthService', () => {
           password: 'wrong',
         }),
       ).rejects.toBeInstanceOf(UnauthorizedException);
+    });
+
+    it('rejects an inactive account without revealing its status', async () => {
+      usersService.findByEmailWithPassword.mockResolvedValue(
+        buildUser({ isActive: false }),
+      );
+      passwordService.compare.mockResolvedValue(true);
+
+      await expect(
+        authService.login({
+          email: 'nam.tran@usth.edu.vn',
+          password: 'password123',
+        }),
+      ).rejects.toMatchObject({
+        message: 'Invalid email or password',
+      });
     });
 
     it('still runs a comparison for an unknown account, to keep timing flat', async () => {

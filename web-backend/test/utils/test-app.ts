@@ -3,6 +3,7 @@ import { Test } from '@nestjs/testing';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { DataSource } from 'typeorm';
 import { AppModule } from '../../src/app.module';
+import { CAMPUS_CLOCK, CampusClock } from '../../src/common/time/campus-clock';
 import { configureApp } from '../../src/app.setup';
 import { AppConfig, appConfig, AuthConfig, authConfig } from '../../src/config';
 
@@ -11,10 +12,14 @@ import { AppConfig, appConfig, AuthConfig, authConfig } from '../../src/config';
  * pipeline (cookie parsing, validation, global guards) instead of a variant that
  * only exists in tests.
  */
-export async function createTestApp(): Promise<INestApplication> {
-  const moduleFixture = await Test.createTestingModule({
+export async function createTestApp(
+  clock?: CampusClock,
+): Promise<INestApplication> {
+  const builder = Test.createTestingModule({
     imports: [AppModule],
-  }).compile();
+  });
+  if (clock) builder.overrideProvider(CAMPUS_CLOCK).useValue(clock);
+  const moduleFixture = await builder.compile();
 
   const app = moduleFixture.createNestApplication<NestExpressApplication>();
   const applicationConfig = app.get<AppConfig>(appConfig.KEY);

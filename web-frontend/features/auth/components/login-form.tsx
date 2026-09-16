@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   ArrowRightIcon,
@@ -23,6 +23,8 @@ interface FormErrors {
 
 export function LoginForm({ redirectTo = "/dashboard" }: LoginFormProps) {
   const router = useRouter();
+  const emailRef = useRef<HTMLInputElement>(null);
+  const passwordRef = useRef<HTMLInputElement>(null);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -53,7 +55,11 @@ export function LoginForm({ redirectTo = "/dashboard" }: LoginFormProps) {
     setErrors(nextErrors);
     setFormError("");
 
-    if (Object.keys(nextErrors).length > 0) return;
+    if (Object.keys(nextErrors).length > 0) {
+      if (nextErrors.email) emailRef.current?.focus();
+      else passwordRef.current?.focus();
+      return;
+    }
 
     setIsSubmitting(true);
 
@@ -78,6 +84,7 @@ export function LoginForm({ redirectTo = "/dashboard" }: LoginFormProps) {
         <div className={`field-control${errors.email ? " field-control--error" : ""}`}>
           <MailIcon width={20} height={20} />
           <input
+            ref={emailRef}
             id="email"
             name="email"
             type="email"
@@ -112,6 +119,7 @@ export function LoginForm({ redirectTo = "/dashboard" }: LoginFormProps) {
         <div className={`field-control${errors.password ? " field-control--error" : ""}`}>
           <LockIcon width={20} height={20} />
           <input
+            ref={passwordRef}
             id="password"
             name="password"
             type={showPassword ? "text" : "password"}

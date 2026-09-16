@@ -39,18 +39,17 @@ describe('AuthCookieService', () => {
     );
   });
 
-  it('marks the cookie secure when configured for HTTPS', () => {
+  it('marks a same-site cookie secure when configured for HTTPS', () => {
     const response = mockResponse();
 
-    new AuthCookieService(buildConfig({ secure: true, sameSite: 'none' })).set(
-      response,
-      'token',
-    );
+    new AuthCookieService(
+      buildConfig({ secure: true, sameSite: 'strict' }),
+    ).set(response, 'token');
 
     expect(response.cookie).toHaveBeenCalledWith(
       'access_token',
       'token',
-      expect.objectContaining({ secure: true, sameSite: 'none' }),
+      expect.objectContaining({ secure: true, sameSite: 'strict' }),
     );
   });
 

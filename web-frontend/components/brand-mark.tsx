@@ -15,13 +15,13 @@ export function BrandMark({
     <Link
       className={`brand-mark${inverse ? " brand-mark--inverse" : ""}`}
       href={href}
+      prefetch={false}
       aria-label="Campus Resource Booking home"
     >
       <svg
         className="brand-mark__symbol"
         viewBox="0 0 48 48"
-        role="img"
-        aria-label=""
+        aria-hidden="true"
       >
         <path className="brand-mark__frame" d="M7 7h24v24H7z" />
         <path className="brand-mark__room" d="M17 17h24v24H17z" />
