@@ -15,6 +15,7 @@ import { Resource } from './resource.entity';
   'CHK_resource_closures_reason_length',
   `char_length(regexp_replace("reason", '^[[:space:]]+|[[:space:]]+$', '', 'g')) >= 2`,
 )
+@Index('IDX_resource_closures_date', ['date'])
 @Index('IDX_resource_closures_resource_date', ['resourceId', 'date'], {
   unique: true,
 })

@@ -72,8 +72,12 @@ describe("ResourceDetail", () => {
     ).toBeVisible();
     expect(screen.getByLabelText("Date")).toHaveAttribute("type", "date");
     expect(screen.getByRole("button", { name: "Check date" })).toBeVisible();
+    expect(screen.getByRole("link", { name: "My bookings" })).toHaveAttribute(
+      "href",
+      "/bookings",
+    );
     expect(
-      screen.getByText(/current pending or confirmed bookings/),
+      screen.getByText(/current pending, confirmed, or checked-in bookings/),
     ).toBeVisible();
     expect(screen.getByText(/Select a slot to review/)).toBeVisible();
   });
@@ -106,7 +110,7 @@ describe("ResourceDetail", () => {
 
     expect(screen.getByText("2 operational hourly slots")).toBeVisible();
     expect(
-      screen.getByText(/Pending and confirmed bookings are excluded/),
+      screen.getByText(/Pending, confirmed, and checked-in bookings are excluded/),
     ).toBeVisible();
     expect(
       screen.getByRole("link", { name: /08:00/ }),

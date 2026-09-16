@@ -80,6 +80,7 @@ export function ResourceDirectory({
           <Link href="/resources" aria-current="page">
             Resources
           </Link>
+          {user.role === "student" && <Link href="/bookings">My bookings</Link>}
         </nav>
         <div className={styles.identity}>
           <span>

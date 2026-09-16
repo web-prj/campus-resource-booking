@@ -99,6 +99,11 @@ describe("ResourceDirectory", () => {
     expect(
       screen.getByRole("link", { name: "Clear 5 filters" }),
     ).toHaveAttribute("href", "/resources");
+    expect(screen.getByRole("navigation", { name: "Resource navigation" })).toBeVisible();
+    expect(screen.getByRole("link", { name: "My bookings" })).toHaveAttribute(
+      "href",
+      "/bookings",
+    );
 
     const roomCard = screen.getByText("Study Room A101").closest("article")!;
     expect(within(roomCard).getByText("8")).toBeVisible();
@@ -197,7 +202,7 @@ describe("ResourceDirectory", () => {
     );
 
     expect(
-      screen.getByText(/pending or confirmed bookings/i),
+      screen.getByText(/pending, confirmed, or checked-in bookings/i),
     ).toBeVisible();
     expect(screen.getByText(/checking operational hours/i)).toBeVisible();
   });

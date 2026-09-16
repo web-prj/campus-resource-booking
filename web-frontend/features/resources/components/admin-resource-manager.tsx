@@ -504,6 +504,7 @@ export function AdminResourceManager({
         <nav className={styles.adminNav} aria-label="Administrator sections">
           <Link href="/admin/resources" aria-current="page">Resources</Link>
           <Link href="/admin/users">Users</Link>
+          <Link href="/admin/analytics">Analytics</Link>
         </nav>
         <div className={styles.identity}>
           <span>

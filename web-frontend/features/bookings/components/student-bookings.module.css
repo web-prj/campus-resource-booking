@@ -84,7 +84,7 @@
 .emptyState a { color: var(--usth-blue); font-size: .78rem; font-weight: 800; }
 
 .detailShell { max-width: 1050px; }
-.backLink { min-height: 42px; display: inline-flex; align-items: center; color: var(--usth-blue); font-size: .8rem; font-weight: 780; }
+.backLink { min-height: 44px; display: inline-flex; align-items: center; color: var(--usth-blue); font-size: .8rem; font-weight: 780; }
 .detailHero { display: flex; align-items: center; justify-content: space-between; gap: 28px; margin-top: 14px; padding: clamp(28px,4vw,46px); color: white; border-radius: 25px; background: linear-gradient(130deg, var(--usth-blue-deep), var(--usth-blue)); }
 .detailHero p { margin: 14px 0 0; color: rgba(255,255,255,.6); font-size: .72rem; }
 .detailHero h1 { margin: 5px 0 0; font-family: var(--font-display); font-size: clamp(2rem,5vw,3.4rem); letter-spacing: -.05em; }
