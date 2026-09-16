@@ -41,6 +41,8 @@ const availability = {
   resourceId,
   date: requestedDate,
   timeZone: "Asia/Ho_Chi_Minh",
+  status: "active",
+  operatingDays: [1, 2, 3, 4, 5, 6],
   opensAt: "08:00",
   closesAt: "18:00",
   blockedReason: null,
@@ -108,6 +110,24 @@ describe("resource server API", () => {
     await expect(getResourceDetail(resourceId, request)).rejects.toThrow(
       "invalid resource data",
     );
+  });
+
+  it("accepts an empty out-of-range page so the route can canonicalize it", async () => {
+    const page = {
+      items: [],
+      total: 1,
+      page: 99,
+      pageSize: 9,
+      totalPages: 1,
+    };
+    const request = vi.fn<typeof fetch>(async (input) =>
+      response(String(input).includes("/resources?") ? page : [building]),
+    );
+
+    await expect(getResourceDirectory({ page: 99 }, request)).resolves.toEqual({
+      page,
+      buildings: [building],
+    });
   });
 
   it.each([

@@ -216,6 +216,11 @@ export function AdminResourceManager({
   const editorRef = useRef<HTMLElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
   const closureDateRef = useRef<HTMLInputElement>(null);
+  const closureFocusPendingRef = useRef(false);
+  const saveButtonRef = useRef<HTMLButtonElement>(null);
+  const saveFocusPendingRef = useRef(false);
+  const statusControlRefs = useRef(new Map<string, HTMLSelectElement>());
+  const statusFocusPendingRef = useRef<string | null>(null);
   const mutationLockRef = useRef(false);
   const isMutating = isSaving || statusPendingId !== null || closurePending;
 
@@ -254,6 +259,28 @@ export function AdminResourceManager({
       active = false;
     };
   }, [editingId]);
+
+  useEffect(() => {
+    if (!isSaving && saveFocusPendingRef.current) {
+      saveFocusPendingRef.current = false;
+      saveButtonRef.current?.focus();
+    }
+  }, [isSaving]);
+
+  useEffect(() => {
+    if (!closurePending && closureFocusPendingRef.current) {
+      closureFocusPendingRef.current = false;
+      closureDateRef.current?.focus();
+    }
+  }, [closurePending]);
+
+  useEffect(() => {
+    const resourceId = statusFocusPendingRef.current;
+    if (statusPendingId === null && resourceId) {
+      statusFocusPendingRef.current = null;
+      statusControlRefs.current.get(resourceId)?.focus();
+    }
+  }, [statusPendingId]);
 
   const counts = useMemo(
     () => ({
@@ -388,6 +415,7 @@ export function AdminResourceManager({
         );
       }
     } finally {
+      saveFocusPendingRef.current = true;
       mutationLockRef.current = false;
       setIsSaving(false);
     }
@@ -429,6 +457,7 @@ export function AdminResourceManager({
         );
       }
     } finally {
+      closureFocusPendingRef.current = true;
       mutationLockRef.current = false;
       setClosurePending(false);
     }
@@ -446,7 +475,6 @@ export function AdminResourceManager({
         current.filter((item) => item.id !== closure.id),
       );
       setClosureMessage(`Closure removed for ${closure.date}.`);
-      requestAnimationFrame(() => closureDateRef.current?.focus());
     } catch (error) {
       if (error instanceof ResourceMutationError && error.code === "session") {
         setSessionExpired(true);
@@ -459,6 +487,7 @@ export function AdminResourceManager({
         );
       }
     } finally {
+      closureFocusPendingRef.current = true;
       mutationLockRef.current = false;
       setClosurePending(false);
     }
@@ -469,6 +498,7 @@ export function AdminResourceManager({
       return;
     }
     mutationLockRef.current = true;
+    statusFocusPendingRef.current = resource.id;
     setStatusPendingId(resource.id);
     setFormError("");
     setMessage("");
@@ -672,6 +702,16 @@ export function AdminResourceManager({
                                   Status for {resource.name}
                                 </span>
                                 <select
+                                  ref={(element) => {
+                                    if (element) {
+                                      statusControlRefs.current.set(
+                                        resource.id,
+                                        element,
+                                      );
+                                    } else {
+                                      statusControlRefs.current.delete(resource.id);
+                                    }
+                                  }}
                                   value={resource.status}
                                   data-status={resource.status}
                                   disabled={isMutating}
@@ -1047,6 +1087,7 @@ export function AdminResourceManager({
                 {message && <p className={styles.successMessage}>{message}</p>}
               </div>
               <button
+                ref={saveButtonRef}
                 className={styles.saveButton}
                 type="submit"
                 disabled={isMutating || buildings.length === 0}

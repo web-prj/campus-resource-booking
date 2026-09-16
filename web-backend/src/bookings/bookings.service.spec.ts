@@ -167,6 +167,46 @@ describe('BookingsService', () => {
     });
   });
 
+  it('reports whether a pending booking remains reviewable', () => {
+    const harness = createHarness();
+    const booking = {
+      status: BookingStatus.PENDING,
+      date: '2026-09-15',
+      startTime: '08:00:00',
+      endTime: '09:00:00',
+    } as Booking;
+
+    expect(
+      harness.service.canReview(booking, new Date('2026-09-15T01:59:59.999Z')),
+    ).toBe(true);
+    expect(
+      harness.service.canReview(booking, new Date('2026-09-15T02:00:00.000Z')),
+    ).toBe(false);
+    expect(
+      harness.service.canReview(
+        { ...booking, status: BookingStatus.CONFIRMED },
+        new Date('2026-09-15T01:00:00.000Z'),
+      ),
+    ).toBe(false);
+  });
+
+  it('reports whether a booking has reached its scheduled end', () => {
+    const harness = createHarness();
+    const booking = {
+      date: '2026-09-15',
+      startTime: '06:00:00',
+      endTime: '07:00:00',
+    } as Booking;
+
+    expect(harness.service.hasEnded(booking)).toBe(true);
+    expect(
+      harness.service.hasEnded(
+        { ...booking, endTime: '10:00:00' },
+        new Date('2026-09-15T02:59:59.999Z'),
+      ),
+    ).toBe(false);
+  });
+
   it('translates only the named PostgreSQL overlap exclusion', async () => {
     const overlap = Object.assign(new Error('overlap'), {
       code: '23P01',

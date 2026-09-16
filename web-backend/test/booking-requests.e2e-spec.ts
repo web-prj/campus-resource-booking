@@ -27,6 +27,8 @@ const DIRECT_SQL_DATE = '2099-01-13';
 const MANAGEMENT_DATE = '2099-01-14';
 const APPROVAL_REVIEW_DATE = '2099-01-15';
 const REJECTION_REVIEW_DATE = '2099-01-16';
+const POLICY_REVALIDATION_DATE = '2099-01-17';
+const CLOSURE_REVALIDATION_DATE = '2099-01-19';
 
 describe('Booking requests (e2e)', () => {
   let app: INestApplication;
@@ -270,6 +272,64 @@ describe('Booking requests (e2e)', () => {
     }
   });
 
+  it('revalidates resource policy and closures when the request is sent', async () => {
+    const policyAvailability = await api()
+      .get(
+        `/api/resources/${noApprovalResourceId}/availability?date=${POLICY_REVALIDATION_DATE}`,
+      )
+      .set('Cookie', studentOneCookie)
+      .expect(200);
+    expect(policyAvailability.body).toMatchObject({
+      requiresApproval: false,
+      blockedReason: null,
+    });
+
+    await dataSource.query(
+      'UPDATE resources SET requires_approval = true WHERE id = $1',
+      [noApprovalResourceId],
+    );
+    const policyBooking = await api()
+      .post('/api/bookings')
+      .set('Cookie', studentOneCookie)
+      .send({
+        resourceId: noApprovalResourceId,
+        date: POLICY_REVALIDATION_DATE,
+        startTime: '09:00',
+        endTime: '10:00',
+      })
+      .expect(201);
+    expect(policyBooking.body.status).toBe('pending');
+    await dataSource.query(
+      'UPDATE resources SET requires_approval = false WHERE id = $1',
+      [noApprovalResourceId],
+    );
+
+    const closureAvailability = await api()
+      .get(
+        `/api/resources/${noApprovalResourceId}/availability?date=${CLOSURE_REVALIDATION_DATE}`,
+      )
+      .set('Cookie', studentOneCookie)
+      .expect(200);
+    expect(closureAvailability.body.blockedReason).toBeNull();
+    await dataSource.query(
+      `INSERT INTO resource_closures (resource_id, date, reason)
+       VALUES ($1, $2, 'Added after availability was checked')`,
+      [noApprovalResourceId, CLOSURE_REVALIDATION_DATE],
+    );
+
+    const closedRequest = await api()
+      .post('/api/bookings')
+      .set('Cookie', studentOneCookie)
+      .send({
+        resourceId: noApprovalResourceId,
+        date: CLOSURE_REVALIDATION_DATE,
+        startTime: '09:00',
+        endTime: '10:00',
+      })
+      .expect(409);
+    expect(closedRequest.body.code).toBe('RESOURCE_UNAVAILABLE');
+  });
+
   it('rejects exact, partial, contained, and enveloping overlaps', async () => {
     const initial = {
       resourceId: noApprovalResourceId,
@@ -341,6 +401,13 @@ describe('Booking requests (e2e)', () => {
   });
 
   it('lists owned bookings, protects details, and releases cancelled slots', async () => {
+    const [historicalConfirmed] = await dataSource.query<{ id: string }[]>(
+      `INSERT INTO bookings (
+        resource_id, requester_id, booking_date, start_time, end_time, status
+      ) VALUES ($1, $2, '2020-01-06', '09:00', '10:00', 'confirmed')
+      RETURNING id`,
+      [noApprovalResourceId, studentOneId],
+    );
     const created = await api()
       .post('/api/bookings')
       .set('Cookie', studentOneCookie)
@@ -363,10 +430,22 @@ describe('Booking requests (e2e)', () => {
           id: bookingId,
           status: 'confirmed',
           canCancel: true,
+          hasEnded: false,
           resource: expect.objectContaining({
             id: noApprovalResourceId,
             name: 'Booking CONFIRM',
           }),
+        }),
+      ]),
+    );
+
+    expect(timeline.body.history).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: historicalConfirmed.id,
+          status: 'confirmed',
+          canCancel: false,
+          hasEnded: true,
         }),
       ]),
     );
@@ -380,21 +459,36 @@ describe('Booking requests (e2e)', () => {
       .set('Cookie', studentTwoCookie)
       .expect(404);
 
-    const cancelled = await api()
-      .patch(`/api/bookings/mine/${bookingId}/cancel`)
-      .set('Cookie', studentOneCookie)
-      .expect(200);
-    expect(cancelled.body).toMatchObject({
+    const cancellationResponses = await Promise.all([
+      api()
+        .patch(`/api/bookings/mine/${bookingId}/cancel`)
+        .set('Cookie', studentOneCookie),
+      api()
+        .patch(`/api/bookings/mine/${bookingId}/cancel`)
+        .set('Cookie', studentOneCookie),
+    ]);
+    expect(
+      cancellationResponses.map((response) => response.status).sort(),
+    ).toEqual([200, 409]);
+    const cancelled = cancellationResponses.find(
+      (response) => response.status === 200,
+    );
+    expect(cancelled?.body).toMatchObject({
       id: bookingId,
       status: 'cancelled',
       canCancel: false,
     });
-    expect(cancelled.body.cancelledAt).toEqual(expect.any(String));
+    expect(cancelled?.body.cancelledAt).toEqual(expect.any(String));
 
-    await api()
-      .patch(`/api/bookings/mine/${bookingId}/cancel`)
+    const cancelledDetail = await api()
+      .get(`/api/bookings/mine/${bookingId}`)
       .set('Cookie', studentOneCookie)
-      .expect(409);
+      .expect(200);
+    expect(cancelledDetail.body).toMatchObject({
+      id: bookingId,
+      status: 'cancelled',
+      canCancel: false,
+    });
 
     const afterCancellation = await api()
       .get('/api/bookings/mine')
@@ -551,6 +645,101 @@ describe('Booking requests (e2e)', () => {
     expect(availability.body.slots).toContainEqual({
       startTime: '10:00',
       endTime: '11:00',
+    });
+  });
+
+  it('serializes competing staff decisions and rejects elapsed requests', async () => {
+    const concurrent = await api()
+      .post('/api/bookings')
+      .set('Cookie', studentOneCookie)
+      .send({
+        resourceId: approvalResourceId,
+        date: '2099-01-22',
+        startTime: '09:00',
+        endTime: '10:00',
+      })
+      .expect(201);
+
+    const responses = await Promise.all([
+      api()
+        .patch(`/api/staff/bookings/${concurrent.body.id}/approve`)
+        .set('Cookie', staffCookie),
+      api()
+        .patch(`/api/staff/bookings/${concurrent.body.id}/reject`)
+        .set('Cookie', staffCookie)
+        .send({ reason: 'A competing staff decision.' }),
+    ]);
+    expect(responses.map((response) => response.status).sort()).toEqual([
+      200, 409,
+    ]);
+
+    const [elapsed] = await dataSource.query<{ id: string }[]>(
+      `INSERT INTO bookings (
+        resource_id, requester_id, booking_date, start_time, end_time, status
+      ) VALUES ($1, $2, '2020-01-20', '09:00', '10:00', 'pending')
+      RETURNING id`,
+      [approvalResourceId, studentOneId],
+    );
+    const queue = await api()
+      .get('/api/staff/bookings/pending')
+      .set('Cookie', staffCookie)
+      .expect(200);
+    expect(queue.body.items).not.toEqual(
+      expect.arrayContaining([expect.objectContaining({ id: elapsed.id })]),
+    );
+    const detail = await api()
+      .get(`/api/staff/bookings/${elapsed.id}`)
+      .set('Cookie', staffCookie)
+      .expect(200);
+    expect(detail.body).toMatchObject({
+      id: elapsed.id,
+      status: 'pending',
+      canReview: false,
+    });
+    await api()
+      .patch(`/api/staff/bookings/${elapsed.id}/approve`)
+      .set('Cookie', staffCookie)
+      .expect(409);
+  });
+
+  it('enforces review metadata directly in PostgreSQL', async () => {
+    await expect(
+      dataSource.query(
+        `INSERT INTO bookings (
+          resource_id, requester_id, booking_date, start_time, end_time, status,
+          reviewed_at
+        ) VALUES ($1, $2, '2099-01-23', '09:00', '10:00', 'confirmed', NOW())`,
+        [approvalResourceId, studentOneId],
+      ),
+    ).rejects.toMatchObject({
+      code: '23514',
+      constraint: 'CHK_bookings_review_pair',
+    });
+
+    await expect(
+      dataSource.query(
+        `INSERT INTO bookings (
+          resource_id, requester_id, booking_date, start_time, end_time, status,
+          reviewed_at, reviewed_by_id, rejection_reason
+        ) VALUES ($1, $2, '2099-01-24', '09:00', '10:00', 'rejected', NOW(), $3, 'x')`,
+        [approvalResourceId, studentOneId, studentOneId],
+      ),
+    ).rejects.toMatchObject({
+      code: '23514',
+      constraint: 'CHK_bookings_rejection_reason_content',
+    });
+
+    await expect(
+      dataSource.query(
+        `INSERT INTO bookings (
+          resource_id, requester_id, booking_date, start_time, end_time, status,
+          rejection_reason
+        ) VALUES ($1, $2, '2099-01-25', '09:00', '10:00', 'rejected', 'Denied')`,
+        [approvalResourceId, studentOneId],
+      ),
+    ).rejects.toMatchObject({
+      code: '23514',
+      constraint: 'CHK_bookings_rejection_state',
     });
   });
 

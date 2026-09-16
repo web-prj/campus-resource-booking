@@ -212,12 +212,37 @@ describe("AdminResourceManager", () => {
         }),
       );
       expect(screen.getByText("Resource created.")).toBeVisible();
+      expect(screen.getByRole("button", { name: "Save changes" })).toHaveFocus();
       expect(
         within(
           screen.getByRole("table", { name: "Campus resource catalog" }),
         ).getByText("Collaboration Room"),
       ).toBeVisible();
     });
+  });
+
+  it("restores save focus when a resource mutation fails", async () => {
+    mockedCreate.mockRejectedValue(
+      new ResourceMutationError(
+        "network",
+        "The resource service is unreachable. Check your connection and try again.",
+      ),
+    );
+    renderManager([]);
+    await completeCreateForm();
+
+    await userEvent.click(
+      screen.getByRole("button", { name: "Create resource" }),
+    );
+
+    expect(
+      await screen.findByText(/resource service is unreachable/i),
+    ).toBeVisible();
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: "Create resource" }),
+      ).toHaveFocus(),
+    );
   });
 
   it("loads a resource into the editor and saves changes", async () => {
@@ -240,6 +265,7 @@ describe("AdminResourceManager", () => {
         expect.objectContaining({ name: "Updated Room" }),
       );
       expect(screen.getByText("Resource changes saved.")).toBeVisible();
+      expect(screen.getByRole("button", { name: "Save changes" })).toHaveFocus();
     });
   });
 
@@ -314,6 +340,7 @@ describe("AdminResourceManager", () => {
     await userEvent.click(screen.getByRole("button", { name: "Add closure" }));
     expect(await screen.findByText("Safety inspection")).toBeVisible();
     expect(screen.getByText("Closure added for 2026-09-19.")).toBeVisible();
+    expect(screen.getByLabelText("Closure date")).toHaveFocus();
     expect(mockedCreateClosure).toHaveBeenCalledWith(resource.id, {
       date: "2026-09-19",
       reason: "Safety inspection",
@@ -328,6 +355,31 @@ describe("AdminResourceManager", () => {
     });
     expect(screen.getByText("Closure removed for 2026-09-18.")).toBeVisible();
     expect(mockedDeleteClosure).toHaveBeenCalledWith(resource.id, closure.id);
+  });
+
+  it("restores closure focus when a closure mutation fails", async () => {
+    mockedCreateClosure.mockRejectedValue(
+      new ResourceMutationError(
+        "network",
+        "The resource service is unreachable. Check your connection and try again.",
+      ),
+    );
+    renderManager();
+    const row = screen.getByText("Study Room A101").closest("tr")!;
+    await userEvent.click(within(row).getByRole("button", { name: "Edit" }));
+    fireEvent.change(screen.getByLabelText("Closure date"), {
+      target: { value: "2026-09-19" },
+    });
+    await userEvent.type(screen.getByLabelText("Reason"), "Safety inspection");
+
+    await userEvent.click(screen.getByRole("button", { name: "Add closure" }));
+
+    expect(
+      await screen.findByText(/resource service is unreachable/i),
+    ).toBeVisible();
+    await waitFor(() =>
+      expect(screen.getByLabelText("Closure date")).toHaveFocus(),
+    );
   });
 
   it("focuses the operating-day group when every day is cleared", async () => {
@@ -377,13 +429,15 @@ describe("AdminResourceManager", () => {
     );
     renderManager();
 
-    fireEvent.change(screen.getByLabelText("Status for Study Room A101"), {
+    const status = screen.getByLabelText("Status for Study Room A101");
+    fireEvent.change(status, {
       target: { value: "maintenance" },
     });
 
     expect(
       await screen.findByRole("link", { name: "Sign in again" }),
     ).toHaveAttribute("href", "/login?next=/admin/resources");
+    expect(status).toHaveFocus();
     expect(screen.getByText(/Your session has ended/)).toBeVisible();
   });
 
@@ -409,6 +463,7 @@ describe("AdminResourceManager", () => {
     resolveStatus({ ...resource, status: "maintenance" });
     await waitFor(() => {
       expect(status).toBeEnabled();
+      expect(status).toHaveFocus();
       expect(
         screen.getByText("Study Room A101 is now maintenance."),
       ).toBeVisible();

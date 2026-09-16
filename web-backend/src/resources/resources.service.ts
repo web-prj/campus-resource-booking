@@ -244,6 +244,40 @@ export class ResourcesService {
     });
   }
 
+  async findAvailabilitySnapshot(
+    resourceId: string,
+    date: string,
+  ): Promise<{
+    resource: Resource;
+    closure: ResourceClosure | null;
+    bookings: Booking[];
+  } | null> {
+    this.requireValidDate(date);
+    return this.resourcesRepository.manager.transaction(
+      'REPEATABLE READ',
+      async (manager) => {
+        const resource = await manager
+          .getRepository(Resource)
+          .findOne({ where: { id: resourceId } });
+        if (!resource) return null;
+
+        const closure = await manager
+          .getRepository(ResourceClosure)
+          .findOneBy({ resourceId, date });
+        const bookings = await manager.getRepository(Booking).find({
+          where: [
+            { resourceId, date, status: BookingStatus.PENDING },
+            { resourceId, date, status: BookingStatus.CONFIRMED },
+            { resourceId, date, status: BookingStatus.CHECKED_IN },
+          ],
+          order: { startTime: 'ASC' },
+        });
+
+        return { resource, closure, bookings };
+      },
+    );
+  }
+
   async findClosure(
     resourceId: string,
     date: string,

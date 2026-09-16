@@ -81,6 +81,7 @@
 .detailFacts div { padding: 16px 5px; border-bottom: 1px solid rgba(42,60,149,.1); }
 .decision { margin-top: 26px; padding: 25px; color: white; border-radius: 16px; background: #111f68; }
 .decision h2 { margin: 0; font-family: var(--font-display); font-size: 1.5rem; }
+.decision h2:focus, .actionError:focus { outline: 3px solid rgba(255,255,255,.45); outline-offset: 3px; }
 .decision > p { margin: 7px 0 18px; color: #d3d9ff; font-size: .84rem; }
 .decisionButtons { display: flex; gap: 10px; }
 .decisionButtons button { min-height: 46px; flex: 1; padding: 0 14px; border: 1px solid rgba(255,255,255,.35); border-radius: 9px; color: white; background: transparent; font-weight: 850; cursor: pointer; }
@@ -101,6 +102,9 @@
 .outcome span, .outcome p { color: #d5dbff; font-size: .8rem; }
 .outcome p { margin: 7px 0 0; }
 .actionError { color: #ffd2d3 !important; font-weight: 750; }
+.errorRecovery { display: grid; justify-items: start; gap: 9px; margin-top: 15px; }
+.errorRecovery .actionError { margin: 0; }
+.errorRecovery a, .errorRecovery button { min-height: 44px; display: inline-flex; align-items: center; padding: 0 14px; border: 1px solid rgba(255,255,255,.5); border-radius: 9px; color: white; background: transparent; font: inherit; font-size: .78rem; font-weight: 850; cursor: pointer; }
 .scheduleIntro { margin: 19px 0; color: #697294; font-size: .82rem; }
 .scheduleList { display: grid; gap: 9px; }
 .scheduleSlot { display: grid; grid-template-columns: 42px 8px 42px 1fr; align-items: center; gap: 7px; padding: 12px; border-radius: 11px; background: #f5f6fc; font-size: .73rem; }

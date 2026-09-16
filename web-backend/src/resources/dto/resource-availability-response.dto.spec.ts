@@ -42,6 +42,8 @@ describe('ResourceAvailabilityResponseDto', () => {
       resourceId: resource.id,
       date: '2026-09-15',
       timeZone: 'Asia/Ho_Chi_Minh',
+      status: ResourceStatus.ACTIVE,
+      operatingDays: [1, 2, 3, 4, 5, 6],
       opensAt: '08:00',
       closesAt: '18:00',
       blockedReason: null,

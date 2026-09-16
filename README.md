@@ -435,6 +435,16 @@ docker compose up -d
 
 Cross-site session cookies are intentionally unsupported until unsafe requests have dedicated CSRF protection. Deploy the frontend and API on the same site.
 
+## Release readiness
+
+The complete MVP quality gate, migration review, demo-data procedure, role smoke matrix, cleanup checks, and rollback guidance are in [`docs/MVP_RELEASE.md`](docs/MVP_RELEASE.md).
+
+Quick read-only smoke after the stack is healthy:
+
+```bash
+./scripts/release-smoke.sh
+```
+
 ## Run applications locally without Docker
 
 Install dependencies independently because there is no root application package:

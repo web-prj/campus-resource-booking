@@ -8,6 +8,7 @@ import {
   confirmStaffCheckIn,
   markStaffBookingNoShow,
   rejectStaffBooking,
+  StaffBookingActionError,
 } from "../api/staff-browser";
 import type { StaffBooking, StaffResourceSchedule } from "../types";
 import { StaffApprovalQueue, StaffBookingDetail } from "./staff-bookings";
@@ -20,7 +21,14 @@ vi.mock("../api/staff-browser", () => ({
   confirmStaffCheckIn: vi.fn(),
   markStaffBookingNoShow: vi.fn(),
   rejectStaffBooking: vi.fn(),
-  StaffBookingActionError: class StaffBookingActionError extends Error {},
+  StaffBookingActionError: class StaffBookingActionError extends Error {
+    constructor(
+      public readonly code: string,
+      message: string,
+    ) {
+      super(message);
+    }
+  },
 }));
 
 const mockedApprove = vi.mocked(approveStaffBooking);
@@ -45,6 +53,7 @@ const booking: StaffBooking = {
   createdAt: "2026-09-15T01:00:00.000Z",
   reviewedAt: null,
   rejectionReason: null,
+  canReview: true,
   checkInRequested: false,
   canConfirmCheckIn: false,
   canCheckOut: false,
@@ -100,6 +109,7 @@ describe("staff approval workflow", () => {
       ...booking,
       id: "40000000-0000-4000-8000-000000000002",
       status: "confirmed" as const,
+      canReview: false,
       checkInRequested: true,
       canConfirmCheckIn: true,
     };
@@ -107,6 +117,7 @@ describe("staff approval workflow", () => {
       ...booking,
       id: "40000000-0000-4000-8000-000000000003",
       status: "checked_in" as const,
+      canReview: false,
       checkedInAt: "2026-09-16T01:00:00.000Z",
       canCheckOut: true,
     };
@@ -114,6 +125,7 @@ describe("staff approval workflow", () => {
       ...booking,
       id: "40000000-0000-4000-8000-000000000004",
       status: "confirmed" as const,
+      canReview: false,
       checkInRequested: true,
       canMarkNoShow: true,
     };
@@ -137,6 +149,7 @@ describe("staff approval workflow", () => {
     mockedApprove.mockResolvedValue({
       ...booking,
       status: "confirmed",
+      canReview: false,
       reviewedAt: "2026-09-16T01:00:00.000Z",
       reviewer: { id: staff.id, email: staff.email, fullName: staff.fullName },
     });
@@ -145,8 +158,49 @@ describe("staff approval workflow", () => {
     await userEvent.click(screen.getByRole("button", { name: "Approve booking" }));
     expect(mockedApprove).toHaveBeenCalledWith(booking.id);
     expect(await screen.findByText("The student has not generated a check-in code yet.")).toBeVisible();
+    expect(screen.getAllByText("Confirmed")).toHaveLength(2);
     await waitFor(() =>
       expect(screen.getByRole("heading", { name: "Confirm campus arrival" })).toHaveFocus(),
+    );
+    expect(refresh).not.toHaveBeenCalled();
+  });
+
+  it("shows elapsed pending requests as read-only", () => {
+    render(
+      <StaffBookingDetail
+        user={staff}
+        booking={{ ...booking, canReview: false }}
+        schedule={schedule}
+      />,
+    );
+
+    expect(screen.getByRole("heading", { name: "Approval window ended" })).toBeVisible();
+    expect(screen.getByText("Request remains pending")).toBeVisible();
+    expect(
+      screen.getByText("No active bookings remain for this resource on this date."),
+    ).toBeVisible();
+    expect(screen.queryByRole("button", { name: "Approve booking" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Reject with reason" })).not.toBeInTheDocument();
+  });
+
+  it("focuses review conflicts and offers an authoritative refresh", async () => {
+    mockedApprove.mockRejectedValue(
+      new StaffBookingActionError(
+        "conflict",
+        "This request is no longer eligible for review. Refresh its details.",
+      ),
+    );
+    render(<StaffBookingDetail user={staff} booking={booking} schedule={schedule} />);
+
+    await userEvent.click(screen.getByRole("button", { name: "Approve booking" }));
+
+    const alert = await screen.findByRole("alert");
+    await waitFor(() => expect(alert).toHaveFocus());
+    expect(
+      screen.getByRole("button", { name: "Refresh booking details" }),
+    ).toBeVisible();
+    await userEvent.click(
+      screen.getByRole("button", { name: "Refresh booking details" }),
     );
     expect(refresh).toHaveBeenCalledOnce();
   });
@@ -155,6 +209,7 @@ describe("staff approval workflow", () => {
     const confirmed: StaffBooking = {
       ...booking,
       status: "confirmed",
+      canReview: false,
       checkInRequested: true,
       canConfirmCheckIn: true,
     };
@@ -188,6 +243,7 @@ describe("staff approval workflow", () => {
     mockedReject.mockResolvedValue({
       ...booking,
       status: "rejected",
+      canReview: false,
       reviewedAt: "2026-09-16T01:00:00.000Z",
       rejectionReason: "Laboratory reserved for teaching.",
       reviewer: { id: staff.id, email: staff.email, fullName: staff.fullName },
@@ -209,5 +265,8 @@ describe("staff approval workflow", () => {
       "Laboratory reserved for teaching.",
     );
     expect(await screen.findByText("Request rejected")).toBeVisible();
+    expect(
+      screen.getByText("No active bookings remain for this resource on this date."),
+    ).toBeVisible();
   });
 });

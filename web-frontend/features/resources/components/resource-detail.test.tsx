@@ -79,7 +79,46 @@ describe("ResourceDetail", () => {
     expect(
       screen.getByText(/current pending, confirmed, or checked-in bookings/),
     ).toBeVisible();
-    expect(screen.getByText(/Select a slot to review/)).toBeVisible();
+    expect(
+      screen.getByText(/policy and availability are checked again/i),
+    ).toBeVisible();
+  });
+
+  it("uses the dated availability snapshot for operational facts and approval", () => {
+    render(
+      <ResourceDetail
+        user={user}
+        resource={{ ...resource, requiresApproval: false }}
+        checkedDate="2099-01-05"
+        selectedSlot={{ startTime: "10:00", endTime: "11:00" }}
+        availability={{
+          resourceId: resource.id,
+          date: "2099-01-05",
+          timeZone: "Asia/Ho_Chi_Minh",
+          status: "active",
+          operatingDays: [1, 3, 5],
+          opensAt: "10:00",
+          closesAt: "12:00",
+          blockedReason: null,
+          closureReason: null,
+          requiresApproval: true,
+          slots: [
+            { startTime: "10:00", endTime: "11:00" },
+            { startTime: "11:00", endTime: "12:00" },
+          ],
+        }}
+      />,
+    );
+
+    expect(screen.getByText("Mon, Wed, Fri · 10:00–12:00 ICT (UTC+7)")).toBeVisible();
+    expect(
+      screen.getAllByText(/staff approval required/i).length,
+    ).toBeGreaterThan(0);
+    expect(screen.getByText("Staff approval")).toBeVisible();
+    expect(
+      screen.getByText(/When this date was checked, the resource required staff approval/),
+    ).toBeVisible();
+    expect(screen.queryByText(/No staff approval is required/)).not.toBeInTheDocument();
   });
 
   it("renders authoritative hourly slots and a non-reservation selection", () => {
@@ -87,6 +126,8 @@ describe("ResourceDetail", () => {
       resourceId: resource.id,
       date: "2026-09-15",
       timeZone: "Asia/Ho_Chi_Minh",
+      status: "active",
+      operatingDays: [1, 2, 3, 4, 5, 6],
       opensAt: "08:00",
       closesAt: "18:00",
       blockedReason: null,
@@ -135,6 +176,8 @@ describe("ResourceDetail", () => {
       resourceId: resource.id,
       date: "2099-01-05",
       timeZone: "Asia/Ho_Chi_Minh",
+      status: "active",
+      operatingDays: [1, 2, 3, 4, 5, 6],
       opensAt: "08:00",
       closesAt: "18:00",
       blockedReason: null,
@@ -167,6 +210,8 @@ describe("ResourceDetail", () => {
       resourceId: resource.id,
       date: "2099-01-05",
       timeZone: "Asia/Ho_Chi_Minh",
+      status: "active",
+      operatingDays: [1, 2, 3, 4, 5, 6],
       opensAt: "08:00",
       closesAt: "18:00",
       blockedReason: null,
@@ -204,6 +249,8 @@ describe("ResourceDetail", () => {
       resourceId: resource.id,
       date: "2099-01-05",
       timeZone: "Asia/Ho_Chi_Minh",
+      status: "active",
+      operatingDays: [1, 2, 3, 4, 5, 6],
       opensAt: "08:00",
       closesAt: "18:00",
       blockedReason: null,
@@ -271,6 +318,8 @@ describe("ResourceDetail", () => {
           resourceId: resource.id,
           date: "2099-01-05",
           timeZone: "Asia/Ho_Chi_Minh",
+          status: "active",
+          operatingDays: [1, 2, 3, 4, 5, 6],
           opensAt: "08:00",
           closesAt: "18:00",
           blockedReason: null,
@@ -301,6 +350,8 @@ describe("ResourceDetail", () => {
           resourceId: resource.id,
           date: "2026-09-18",
           timeZone: "Asia/Ho_Chi_Minh",
+          status: "active",
+          operatingDays: [1, 2, 3, 4, 5, 6],
           opensAt: "08:00",
           closesAt: "18:00",
           blockedReason: "closure",

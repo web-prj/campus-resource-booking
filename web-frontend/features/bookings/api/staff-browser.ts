@@ -44,7 +44,7 @@ function mapError(error: unknown): StaffBookingActionError {
       session: "Your session has ended. Sign in again before reviewing requests.",
       forbidden: "Only staff accounts can review booking requests.",
       "not-found": "This booking request no longer exists.",
-      conflict: "This request has already been reviewed. Refresh its details.",
+      conflict: "This request is no longer eligible for review. Refresh its details.",
       network:
         "The approval service is unreachable. Check your connection and try again.",
       unexpected: "This review could not be saved. Try again.",

@@ -50,11 +50,15 @@ export class BookingsController {
   async findMine(
     @CurrentUser('id') requesterId: string,
   ): Promise<StudentBookingListResponseDto> {
-    const { upcoming, history } =
+    const { upcoming, history, evaluatedAt } =
       await this.bookingsService.findForStudent(requesterId);
     return {
-      upcoming: upcoming.map((booking) => this.studentResponse(booking)),
-      history: history.map((booking) => this.studentResponse(booking)),
+      upcoming: upcoming.map((booking) =>
+        this.studentResponse(booking, evaluatedAt),
+      ),
+      history: history.map((booking) =>
+        this.studentResponse(booking, evaluatedAt),
+      ),
     };
   }
 
@@ -178,11 +182,15 @@ export class BookingsController {
     }
   }
 
-  private studentResponse(booking: Booking): StudentBookingResponseDto {
+  private studentResponse(
+    booking: Booking,
+    evaluatedAt: Date = this.bookingsService.currentTime(),
+  ): StudentBookingResponseDto {
     return StudentBookingResponseDto.fromEntity(
       booking,
-      this.bookingsService.canCancel(booking),
-      this.bookingsService.canRequestCheckIn(booking),
+      this.bookingsService.canCancel(booking, evaluatedAt),
+      this.bookingsService.canRequestCheckIn(booking, evaluatedAt),
+      this.bookingsService.hasEnded(booking, evaluatedAt),
     );
   }
 }

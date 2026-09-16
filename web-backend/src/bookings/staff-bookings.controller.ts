@@ -48,9 +48,12 @@ export class StaffBookingsController {
   @ApiOperation({ summary: 'List today’s confirmed and checked-in bookings' })
   @ApiOkResponse({ type: StaffOperationsQueueResponseDto })
   async findOperations(): Promise<StaffOperationsQueueResponseDto> {
-    const bookings = await this.bookingsService.findOperationsForStaff();
+    const { bookings, evaluatedAt } =
+      await this.bookingsService.findOperationsForStaff();
     return {
-      items: bookings.map((booking) => this.staffResponse(booking)),
+      items: bookings.map((booking) =>
+        this.staffResponse(booking, evaluatedAt),
+      ),
       total: bookings.length,
     };
   }
@@ -59,9 +62,12 @@ export class StaffBookingsController {
   @ApiOperation({ summary: 'List pending booking requests oldest first' })
   @ApiOkResponse({ type: StaffBookingQueueResponseDto })
   async findPending(): Promise<StaffBookingQueueResponseDto> {
-    const bookings = await this.bookingsService.findPendingForStaff();
+    const { bookings, evaluatedAt } =
+      await this.bookingsService.findPendingForStaff();
     return {
-      items: bookings.map((booking) => this.staffResponse(booking)),
+      items: bookings.map((booking) =>
+        this.staffResponse(booking, evaluatedAt),
+      ),
       total: bookings.length,
     };
   }
@@ -74,14 +80,14 @@ export class StaffBookingsController {
     @Param('resourceId', ParseUUIDPipe) resourceId: string,
     @Query() query: ResourceAvailabilityQueryDto,
   ): Promise<StaffResourceScheduleResponseDto> {
-    const bookings = await this.bookingsService.findResourceSchedule(
-      resourceId,
-      query.date,
-    );
+    const { bookings, evaluatedAt } =
+      await this.bookingsService.findResourceSchedule(resourceId, query.date);
     return {
       resourceId,
       date: query.date,
-      bookings: bookings.map((booking) => this.staffResponse(booking)),
+      bookings: bookings.map((booking) =>
+        this.staffResponse(booking, evaluatedAt),
+      ),
     };
   }
 
@@ -195,11 +201,16 @@ export class StaffBookingsController {
 
   private staffResponse(
     booking: Parameters<typeof StaffBookingResponseDto.fromEntity>[0],
+    evaluatedAt: Date = this.bookingsService.currentTime(),
   ): StaffBookingResponseDto {
     return StaffBookingResponseDto.fromEntity(booking, {
-      canConfirmCheckIn: this.bookingsService.canConfirmCheckIn(booking),
+      canReview: this.bookingsService.canReview(booking, evaluatedAt),
+      canConfirmCheckIn: this.bookingsService.canConfirmCheckIn(
+        booking,
+        evaluatedAt,
+      ),
       canCheckOut: this.bookingsService.canCheckOut(booking),
-      canMarkNoShow: this.bookingsService.canMarkNoShow(booking),
+      canMarkNoShow: this.bookingsService.canMarkNoShow(booking, evaluatedAt),
     });
   }
 
@@ -227,7 +238,10 @@ export class StaffBookingsController {
       if (error.code === 'BOOKING_NOT_FOUND') {
         throw new NotFoundException(body);
       }
-      if (error.code === 'BOOKING_NOT_PENDING') {
+      if (
+        error.code === 'BOOKING_NOT_PENDING' ||
+        error.code === 'BOOKING_REVIEW_WINDOW_ENDED'
+      ) {
         throw new ConflictException(body);
       }
     }

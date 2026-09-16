@@ -16,7 +16,7 @@ import { Building } from './building.entity';
 import { ResourceClosure } from './resource-closure.entity';
 
 @Entity('resources')
-@Check('CHK_resources_capacity_positive', '"capacity" > 0')
+@Check('CHK_resources_capacity_supported', '"capacity" BETWEEN 1 AND 10000')
 @Check(
   'CHK_resources_operating_days_not_empty',
   'cardinality("operating_days") > 0',

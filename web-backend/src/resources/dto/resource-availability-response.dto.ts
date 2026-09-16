@@ -31,6 +31,12 @@ export class ResourceAvailabilityResponseDto {
   @ApiProperty({ example: CAMPUS_TIME_ZONE })
   timeZone: string;
 
+  @ApiProperty({ enum: ResourceStatus })
+  status: ResourceStatus;
+
+  @ApiProperty({ type: Number, isArray: true, example: [1, 2, 3, 4, 5, 6] })
+  operatingDays: number[];
+
   @ApiProperty({ example: '08:00' })
   opensAt: string;
 
@@ -73,6 +79,8 @@ export class ResourceAvailabilityResponseDto {
       resourceId: resource.id,
       date,
       timeZone: CAMPUS_TIME_ZONE,
+      status: resource.status,
+      operatingDays: resource.operatingDays,
       opensAt: normalizeTime(resource.opensAt),
       closesAt: normalizeTime(resource.closesAt),
       blockedReason,

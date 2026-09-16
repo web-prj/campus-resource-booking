@@ -73,19 +73,18 @@ export class ResourcesController {
     @Param('id', ParseUUIDPipe) id: string,
     @Query() query: ResourceAvailabilityQueryDto,
   ): Promise<ResourceAvailabilityResponseDto> {
-    const resource = await this.resourcesService.findById(id);
-    if (!resource) throw new NotFoundException('Resource not found');
-
     try {
-      const [closure, bookings] = await Promise.all([
-        this.resourcesService.findClosure(id, query.date),
-        this.resourcesService.findBlockingBookings(id, query.date),
-      ]);
-      return ResourceAvailabilityResponseDto.fromResource(
-        resource,
+      const snapshot = await this.resourcesService.findAvailabilitySnapshot(
+        id,
         query.date,
-        closure,
-        bookings,
+      );
+      if (!snapshot) throw new NotFoundException('Resource not found');
+
+      return ResourceAvailabilityResponseDto.fromResource(
+        snapshot.resource,
+        query.date,
+        snapshot.closure,
+        snapshot.bookings,
         this.resourcesService.currentTime(),
       );
     } catch (error: unknown) {

@@ -35,5 +35,12 @@ export default async function StaffBookingDetailPage({
     booking.resource.id,
     booking.date,
   );
-  return <StaffBookingDetail user={user} booking={booking} schedule={schedule} />;
+  return (
+    <StaffBookingDetail
+      key={`${booking.id}:${booking.status}:${booking.canConfirmCheckIn}:${booking.canCheckOut}:${booking.canMarkNoShow}:${booking.reviewedAt ?? "none"}`}
+      user={user}
+      booking={booking}
+      schedule={schedule}
+    />
+  );
 }

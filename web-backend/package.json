@@ -21,7 +21,9 @@
     "migration:generate": "npm run typeorm -- migration:generate",
     "migration:create": "typeorm-ts-node-commonjs migration:create",
     "migration:run": "npm run typeorm -- migration:run",
-    "migration:revert": "npm run typeorm -- migration:revert"
+    "migration:revert": "npm run typeorm -- migration:revert",
+    "demo:seed": "ts-node src/database/demo-data.ts",
+    "demo:clean": "ts-node src/database/demo-data.ts --clean"
   },
   "dependencies": {
     "@nestjs/common": "11.2.3",
@@ -58,6 +60,7 @@
     "@types/jest": "^29.5.14",
     "@types/node": "^22.20.2",
     "@types/passport-jwt": "^4.0.1",
+    "@types/pg": "8.23.1",
     "@types/supertest": "^6.0.2",
     "@typescript-eslint/eslint-plugin": "^8.70.0",
     "@typescript-eslint/parser": "^8.19.1",

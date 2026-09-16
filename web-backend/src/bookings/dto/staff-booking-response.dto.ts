@@ -50,6 +50,9 @@ export class StaffBookingResponseDto {
   @ApiPropertyOptional({ nullable: true, maxLength: 500 })
   rejectionReason: string | null;
 
+  @ApiProperty({ description: 'Whether staff can review this request now' })
+  canReview: boolean;
+
   @ApiProperty({ description: 'Whether the student has generated a code' })
   checkInRequested: boolean;
 
@@ -83,6 +86,7 @@ export class StaffBookingResponseDto {
   static fromEntity(
     booking: Booking,
     actions: {
+      canReview: boolean;
       canConfirmCheckIn: boolean;
       canCheckOut: boolean;
       canMarkNoShow: boolean;
@@ -98,6 +102,7 @@ export class StaffBookingResponseDto {
       createdAt: booking.createdAt,
       reviewedAt: booking.reviewedAt,
       rejectionReason: booking.rejectionReason,
+      canReview: actions.canReview,
       checkInRequested: booking.checkInRequestedAt !== null,
       canConfirmCheckIn: actions.canConfirmCheckIn,
       canCheckOut: actions.canCheckOut,

@@ -63,6 +63,8 @@ describe("resource response schemas", () => {
       resourceId: resource.id,
       date: "2026-09-15",
       timeZone: "Asia/Ho_Chi_Minh",
+      status: "active",
+      operatingDays: [1, 2, 3, 4, 5, 6],
       opensAt: "08:00",
       closesAt: "18:00",
       blockedReason: null,
@@ -91,6 +93,19 @@ describe("resource response schemas", () => {
       }),
     ).not.toBeNull();
     expect(parseResourceClosure(closure)).toEqual(closure);
+    expect(
+      parseResourceAvailability({
+        ...availability,
+        status: "maintenance",
+        blockedReason: null,
+      }),
+    ).toBeNull();
+    expect(
+      parseResourceAvailability({
+        ...availability,
+        operatingDays: [1, 1],
+      }),
+    ).toBeNull();
     expect(
       parseResourceAvailability({ ...availability, blockedReason: "booked" }),
     ).toBeNull();
@@ -153,6 +168,24 @@ describe("resource response schemas", () => {
       page: 2,
       pageSize: 9,
       totalPages: 2,
+    });
+  });
+
+  it("parses an authoritative empty page beyond the last result page", () => {
+    expect(
+      parseResourcePage({
+        items: [],
+        total: 1,
+        page: 99,
+        pageSize: 9,
+        totalPages: 1,
+      }),
+    ).toEqual({
+      items: [],
+      total: 1,
+      page: 99,
+      pageSize: 9,
+      totalPages: 1,
     });
   });
 

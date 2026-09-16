@@ -51,6 +51,10 @@ import { BookingStatus } from '../enums/booking-status.enum';
   `("status" = 'rejected' AND "rejection_reason" IS NOT NULL AND "reviewed_at" IS NOT NULL) OR ("status" <> 'rejected' AND "rejection_reason" IS NULL)`,
 )
 @Check(
+  'CHK_bookings_rejection_reason_content',
+  `"status" <> 'rejected' OR char_length(btrim("rejection_reason")) BETWEEN 3 AND 500`,
+)
+@Check(
   'CHK_bookings_check_in_request',
   `("check_in_code" IS NULL AND "check_in_requested_at" IS NULL) OR ("check_in_code" ~ '^[0-9]{6}$' AND "check_in_requested_at" IS NOT NULL)`,
 )
