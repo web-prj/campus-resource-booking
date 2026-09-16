@@ -84,6 +84,7 @@ export function ResourceDetail({
           <Link href="/resources" aria-current="page">
             Resources
           </Link>
+          {user.role === "student" && <Link href="/bookings">My bookings</Link>}
         </nav>
         <div className={styles.identity}>
           <span>
@@ -164,7 +165,7 @@ export function ResourceDetail({
               <strong>Select a date to see hourly slots.</strong>
               <span>
                 Displayed slots reflect operating schedules, full-day closures,
-                and current pending or confirmed bookings.
+                and current pending, confirmed, or checked-in bookings.
               </span>
             </div>
           ) : availability.blockedReason ? (
@@ -180,7 +181,7 @@ export function ResourceDetail({
               <strong>No bookable hourly slots remain</strong>
               <span>
                 Every operational slot on this date has elapsed or is occupied
-                by a pending or confirmed booking. Choose another date.
+                by a pending, confirmed, or checked-in booking. Choose another date.
               </span>
             </div>
           ) : (
@@ -191,7 +192,7 @@ export function ResourceDetail({
                 </strong>
                 <span>{availability.date} · ICT (UTC+7)</span>
                 <small>
-                  Pending and confirmed bookings are excluded. Availability is
+                  Pending, confirmed, and checked-in bookings are excluded. Availability is
                   checked again when a booking request is sent.
                 </small>
               </div>

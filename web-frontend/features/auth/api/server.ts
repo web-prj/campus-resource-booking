@@ -15,13 +15,13 @@ export async function getCurrentUser(request: typeof fetch = fetch): Promise<Use
       cache: "no-store",
     });
   } catch {
-    throw new Error("The booking service is unavailable.");
+    throw new Error("The authentication service is unavailable.");
   }
 
   if (response.status === 401) return null;
   if (!response.ok) throw new Error(`Session lookup failed with ${response.status}.`);
 
   const user = parseUser(await response.json().catch(() => null));
-  if (!user) throw new Error("The booking service returned an invalid session.");
+  if (!user) throw new Error("The authentication service returned an invalid session.");
   return user;
 }

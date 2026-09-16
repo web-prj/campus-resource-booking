@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerGuard } from '@nestjs/throttler';
+import { AnalyticsModule } from './analytics/analytics.module';
 import { AuthModule } from './auth/auth.module';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 import { BookingsModule } from './bookings/bookings.module';
@@ -31,6 +32,7 @@ import { UsersModule } from './users/users.module';
     UsersModule,
     ResourcesModule,
     BookingsModule,
+    AnalyticsModule,
     AuthModule,
   ],
   providers: [

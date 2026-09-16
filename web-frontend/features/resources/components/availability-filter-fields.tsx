@@ -88,7 +88,7 @@ export function AvailabilityFilterFields({
       <p className={styles.availabilityHint} id="availability-filter-hint">
         Optional. If used, complete date, from, and until. Until must be after
         From. Times use ICT (UTC+7). Results exclude closures and intervals
-        occupied by pending or confirmed bookings.
+        occupied by pending, confirmed, or checked-in bookings.
       </p>
     </>
   );

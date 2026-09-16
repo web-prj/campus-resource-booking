@@ -15,6 +15,11 @@ import { User } from '../../users/entities/user.entity';
 import { BookingStatus } from '../enums/booking-status.enum';
 
 @Entity('bookings')
+@Index('IDX_bookings_analytics_date_status_resource', [
+  'date',
+  'status',
+  'resourceId',
+])
 @Index('IDX_bookings_resource_date', ['resourceId', 'date'])
 @Index('IDX_bookings_requester_created_at', ['requesterId', 'createdAt'])
 @Index('IDX_bookings_pending_created_at', ['createdAt'], {

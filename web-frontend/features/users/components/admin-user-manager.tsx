@@ -123,6 +123,7 @@ export function AdminUserManager({
         <nav aria-label="Administrator sections">
           <Link href="/admin/resources">Resources</Link>
           <Link href="/admin/users" aria-current="page">Users</Link>
+          <Link href="/admin/analytics">Analytics</Link>
         </nav>
         <div className={styles.identity}>
           <span><strong>{currentUser.fullName}</strong><small>Administrator</small></span>

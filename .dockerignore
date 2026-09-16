@@ -3,6 +3,8 @@
 .gitignore
 .github
 .pi
+.playwright-cli
+**/.playwright-cli
 AGENTS.md
 
 # Dependencies and generated output
@@ -13,12 +15,14 @@ AGENTS.md
 **/out
 **/coverage
 **/*.tsbuildinfo
+**/*.test.ts
+**/*.test.tsx
+**/*.spec.ts
+**/test
 
 # Local configuration and secrets
 **/.env
 **/.env.*
-!**/.env.example
-!**/.env.test
 
 # Documentation and local noise
 **/*.log

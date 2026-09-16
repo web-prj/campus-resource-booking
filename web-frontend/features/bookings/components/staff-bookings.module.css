@@ -61,7 +61,7 @@
 .emptyState h3, .emptyState p { margin: 0; }
 .emptyState p { color: #697294; }
 .detailShell { padding-top: 32px; }
-.backLink { display: inline-flex; margin-bottom: 20px; color: #2a3c95; font-size: .8rem; font-weight: 850; }
+.backLink { min-height: 44px; display: inline-flex; align-items: center; margin-bottom: 20px; color: #2a3c95; font-size: .8rem; font-weight: 850; }
 .detailHero { min-height: 250px; display: flex; align-items: center; justify-content: space-between; gap: 36px; padding: 38px 46px; color: white; border-radius: 25px 25px 0 0; background: linear-gradient(118deg, #101f70, #2a3c95 70%, #3a50ac); }
 .detailHero > div:first-child > p { margin: 11px 0 0; color: #cfd6ff; font-size: .75rem; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; }
 .detailHero h1 { margin: 7px 0 8px; font-size: clamp(2.2rem, 5vw, 4.4rem); }

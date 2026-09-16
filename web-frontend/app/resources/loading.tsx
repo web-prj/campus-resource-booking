@@ -1,11 +1,12 @@
+import { RouteState } from "@/components/route-state";
+
 export default function ResourcesLoading() {
   return (
-    <main
-      aria-busy="true"
-      aria-live="polite"
-      style={{ minHeight: "100vh", padding: "4rem 1.5rem" }}
-    >
-      <p role="status">Loading campus resources and availability…</p>
-    </main>
+    <RouteState
+      busy
+      eyebrow="Loading live resource data"
+      title="Checking the campus directory"
+      description="Fetching active rooms, laboratories, equipment, and current availability filters."
+    />
   );
 }

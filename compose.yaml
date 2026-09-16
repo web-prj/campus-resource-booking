@@ -8,16 +8,15 @@ services:
       POSTGRES_USER: ${DB_USERNAME:-postgres}
       POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
       POSTGRES_DB: ${DB_NAME:-web_backend}
-    command: ["postgres", "-p", "18322"]
     ports:
-      - "${DB_HOST_PORT:-18322}:18322"
+      - "${DB_HOST_PORT:-18322}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
       test:
         [
           "CMD-SHELL",
-          "pg_isready -p 18322 -U ${DB_USERNAME:-postgres} -d ${DB_NAME:-web_backend}",
+          "psql -U $${POSTGRES_USER} -d $${POSTGRES_DB} -c 'SELECT 1' >/dev/null",
         ]
       interval: 5s
       timeout: 5s
@@ -39,7 +38,7 @@ services:
       API_PREFIX: ${API_PREFIX:-api}
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:18321}
       DB_HOST: postgres
-      DB_PORT: 18322
+      DB_PORT: 5432
       DB_USERNAME: ${DB_USERNAME:-postgres}
       DB_PASSWORD: ${DB_PASSWORD:-postgres}
       DB_NAME: ${DB_NAME:-web_backend}
@@ -56,14 +55,8 @@ services:
       AUTH_THROTTLE_LIMIT: ${AUTH_THROTTLE_LIMIT:-10}
     ports:
       - "${BACKEND_PORT:-18320}:18320"
-    command:
-      - /bin/sh
-      - -c
-      - >-
-        node node_modules/typeorm/cli.js migration:run -d dist/database/data-source.js
-        && node dist/main
     healthcheck:
-      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:18320/api/health"]
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:$${PORT}/$${API_PREFIX}/health"]
       interval: 10s
       timeout: 5s
       retries: 10
@@ -82,11 +75,11 @@ services:
         condition: service_healthy
     environment:
       # Server Components use the Compose network instead of browser localhost.
-      INTERNAL_API_URL: http://backend:18320/api
+      INTERNAL_API_URL: http://backend:18320/${API_PREFIX:-api}
     ports:
       - "${FRONTEND_PORT:-18321}:18321"
     healthcheck:
-      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:18321/"]
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:$${PORT}/"]
       interval: 10s
       timeout: 5s
       retries: 10

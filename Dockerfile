@@ -10,7 +10,6 @@ RUN npm run build && npm prune --omit=dev
 
 # ---------- Backend runtime ----------
 FROM node:22-alpine AS backend
-RUN apk add --no-cache libstdc++
 WORKDIR /app
 ENV NODE_ENV=production
 COPY --from=backend-builder --chown=node:node /app/web-backend/node_modules ./node_modules
@@ -18,7 +17,7 @@ COPY --from=backend-builder --chown=node:node /app/web-backend/dist ./dist
 COPY --from=backend-builder --chown=node:node /app/web-backend/package.json ./package.json
 USER node
 EXPOSE 18320
-CMD ["node", "dist/main"]
+CMD ["sh", "-c", "node node_modules/typeorm/cli.js migration:run -d dist/database/data-source.js && exec node dist/main"]
 
 # ---------- Frontend build ----------
 FROM node:22-alpine AS frontend-builder
@@ -36,7 +35,6 @@ WORKDIR /app
 ENV NODE_ENV=production \
     HOSTNAME=0.0.0.0 \
     PORT=18321
-COPY --from=frontend-builder --chown=node:node /app/web-frontend/public ./public
 COPY --from=frontend-builder --chown=node:node /app/web-frontend/.next/standalone ./
 COPY --from=frontend-builder --chown=node:node /app/web-frontend/.next/static ./.next/static
 USER node

@@ -110,23 +110,23 @@ Use this file to track feature completion. Plan implementation details separatel
 
 ### 11. Basic analytics
 
-- [ ] Total booking count
-- [ ] Booking status breakdown
-- [ ] Cancellation rate
-- [ ] Most-booked resources
-- [ ] Peak booking hours
-- [ ] Resource utilization summary
-- [ ] Date-range filtering
+- [x] Total booking count
+- [x] Booking status breakdown
+- [x] Cancellation rate
+- [x] Most-booked resources
+- [x] Peak booking hours
+- [x] Resource utilization summary
+- [x] Date-range filtering
 
 ### 12. MVP user experience
 
-- [ ] Loading states for all live features
-- [ ] Empty states for all live features
-- [ ] User-friendly error states
-- [ ] Accessible forms and status messages
-- [ ] Responsive student, staff, and admin workflows
-- [ ] Consistent navigation for each role
-- [ ] Honest labels for live and unavailable data
+- [x] Loading states for all live features
+- [x] Empty states for all live features
+- [x] User-friendly error states
+- [x] Accessible forms and status messages
+- [x] Responsive student, staff, and admin workflows
+- [x] Consistent navigation for each role
+- [x] Honest labels for live and unavailable data
 
 ## MVP verification and release readiness
 
