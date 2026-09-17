@@ -38,11 +38,13 @@ describe("AdminAnalyticsPage", () => {
   it("redirects an anonymous request to the safe analytics login destination", async () => {
     vi.mocked(getCurrentUser).mockResolvedValue(null);
     await expect(AdminAnalyticsPage({ searchParams: Promise.resolve({}) })).rejects.toThrow("redirect:/login?next=/admin/analytics");
+    expect(getAdminAnalytics).not.toHaveBeenCalled();
   });
 
   it("redirects a non-admin account to its role workspace", async () => {
     vi.mocked(getCurrentUser).mockResolvedValue({ ...admin, role: "student" });
     await expect(AdminAnalyticsPage({ searchParams: Promise.resolve({}) })).rejects.toThrow("redirect:/dashboard");
+    expect(getAdminAnalytics).not.toHaveBeenCalled();
   });
 
   it("passes a valid requested range to the no-store analytics client", async () => {
@@ -56,15 +58,18 @@ describe("AdminAnalyticsPage", () => {
     expect(page.props.user).toEqual(admin);
   });
 
-  it("replaces impossible or overlong ranges with the safe 30-day default", async () => {
+  it("redirects incomplete, repeated, impossible, or overlong ranges to the canonical default", async () => {
     vi.mocked(getCurrentUser).mockResolvedValue(admin);
-    vi.mocked(getAdminAnalytics).mockImplementation(async (range) => ({ ...summary, ...range }));
-    await AdminAnalyticsPage({
-      searchParams: Promise.resolve({ from: "2099-02-30", to: "2101-01-01" }),
-    });
-    const range = vi.mocked(getAdminAnalytics).mock.calls[0][0];
-    expect(range.from).toMatch(/^\d{4}-\d{2}-\d{2}$/);
-    expect(range.to).toMatch(/^\d{4}-\d{2}-\d{2}$/);
-    expect((Date.parse(range.to) - Date.parse(range.from)) / 86_400_000).toBe(29);
+    for (const searchParams of [
+      { from: "2099-01-01" },
+      { from: ["2099-01-01", "2099-01-02"], to: "2099-01-30" },
+      { from: "2099-02-30", to: "2101-01-01" },
+      { from: "2100-01-01", to: "2099-01-01" },
+    ]) {
+      await expect(
+        AdminAnalyticsPage({ searchParams: Promise.resolve(searchParams) }),
+      ).rejects.toThrow("redirect:/admin/analytics");
+    }
+    expect(getAdminAnalytics).not.toHaveBeenCalled();
   });
 });

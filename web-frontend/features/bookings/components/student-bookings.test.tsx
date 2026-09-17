@@ -97,7 +97,7 @@ describe("student booking management", () => {
       ...booking,
       canCancel: false,
       canRequestCheckIn: false,
-  hasEnded: false,
+      hasEnded: false,
       checkInCode: "482193",
       checkInRequestedAt: "2026-09-16T01:00:00.000Z",
     });
@@ -112,7 +112,57 @@ describe("student booking management", () => {
     expect(mockedCheckIn).toHaveBeenCalledWith(booking.id);
     expect(await screen.findByText("482193")).toBeVisible();
     expect(screen.getByRole("status", { name: "Check-in code 482193" })).toBeVisible();
+    expect(refresh).not.toHaveBeenCalled();
+    await waitFor(() =>
+      expect(
+        screen.getByRole("heading", {
+          name: "Show this code to campus staff",
+        }),
+      ).toHaveFocus(),
+    );
   });
+
+  it.each([
+    [
+      "session" as const,
+      "Your session has ended. Sign in again before checking in.",
+      "Sign in again",
+    ],
+    [
+      "conflict" as const,
+      "Check-in is not available for this booking now. Refresh its details.",
+      "Refresh booking details",
+    ],
+  ])(
+    "focuses a %s check-in error and offers recovery",
+    async (code, message, recoveryName) => {
+      mockedCheckIn.mockRejectedValue(new BookingRequestError(code, message));
+      render(
+        <StudentBookingDetail
+          user={user}
+          booking={{ ...booking, canCancel: false, canRequestCheckIn: true }}
+        />,
+      );
+
+      await userEvent.click(
+        screen.getByRole("button", { name: "Generate check-in code" }),
+      );
+
+      const alert = await screen.findByRole("alert");
+      await waitFor(() => expect(alert).toHaveFocus());
+      if (code === "session") {
+        expect(screen.getByRole("link", { name: recoveryName })).toHaveAttribute(
+          "href",
+          `/login?next=%2Fbookings%2F${booking.id}`,
+        );
+      } else {
+        await userEvent.click(
+          screen.getByRole("button", { name: recoveryName }),
+        );
+        expect(refresh).toHaveBeenCalledOnce();
+      }
+    },
+  );
 
   it("explains elapsed active lifecycle statuses without presenting upcoming actions", () => {
     render(

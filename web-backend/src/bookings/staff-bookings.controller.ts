@@ -45,16 +45,17 @@ export class StaffBookingsController {
   constructor(private readonly bookingsService: BookingsService) {}
 
   @Get('operations')
-  @ApiOperation({ summary: 'List today’s confirmed and checked-in bookings' })
+  @ApiOperation({ summary: 'List current and overdue operational bookings' })
   @ApiOkResponse({ type: StaffOperationsQueueResponseDto })
   async findOperations(): Promise<StaffOperationsQueueResponseDto> {
-    const { bookings, evaluatedAt } =
+    const { bookings, evaluatedAt, campusDate } =
       await this.bookingsService.findOperationsForStaff();
     return {
       items: bookings.map((booking) =>
         this.staffResponse(booking, evaluatedAt),
       ),
       total: bookings.length,
+      campusDate,
     };
   }
 

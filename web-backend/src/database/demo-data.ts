@@ -208,8 +208,13 @@ async function seed(client: Client): Promise<void> {
         resource_id, requester_id, booking_date, start_time, end_time, status,
         reviewed_at, reviewed_by_id, check_in_code, check_in_requested_at,
         checked_in_at, checked_in_by_id, checked_out_at, checked_out_by_id
-      ) VALUES ($1, $2, $3, '09:00', '11:00', 'completed', now(), $4,
-        '246810', now(), now(), $4, now(), $4)`,
+      ) VALUES (
+        $1, $2, $3, '09:00', '11:00', 'completed', now(), $4,
+        NULL,
+        (($3::date + TIME '08:50') AT TIME ZONE 'Asia/Ho_Chi_Minh'),
+        (($3::date + TIME '09:00') AT TIME ZONE 'Asia/Ho_Chi_Minh'), $4,
+        (($3::date + TIME '11:00') AT TIME ZONE 'Asia/Ho_Chi_Minh'), $4
+      )`,
       [resources.get('room'), studentId, historyDate, staffId],
     );
 

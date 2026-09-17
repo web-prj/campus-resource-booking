@@ -30,6 +30,18 @@ describe("LoginForm", () => {
     expect(mockedLogin).not.toHaveBeenCalled();
   });
 
+  it("focuses an announced sign-in failure", async () => {
+    mockedLogin.mockRejectedValue(new Error("offline"));
+    render(<LoginForm />);
+
+    await userEvent.type(screen.getByLabelText("USTH email"), "student@usth.edu.vn");
+    await userEvent.type(screen.getByLabelText("Password"), "password123");
+    await userEvent.click(screen.getByRole("button", { name: "Sign in securely" }));
+
+    expect(await screen.findByRole("alert")).toHaveFocus();
+    expect(screen.getByRole("alert")).toHaveTextContent("Sign-in could not be completed");
+  });
+
   it("disables duplicate submission while login is pending", async () => {
     mockedLogin.mockImplementation(() => new Promise(() => undefined));
     render(<LoginForm />);

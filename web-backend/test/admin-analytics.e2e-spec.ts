@@ -100,12 +100,12 @@ describe('Admin booking analytics (e2e)', () => {
         check_in_code, check_in_requested_at, checked_in_at, checked_in_by_id,
         checked_out_at, checked_out_by_id, no_show_at, no_show_by_id
       ) VALUES
-        ($1, $3, '2099-03-02', '08:00', '10:00', 'completed', NULL, now(), $3, NULL, '123456', now(), now(), $3, now(), $3, NULL, NULL),
+        ($1, $3, '2099-03-02', '08:00', '10:00', 'completed', NULL, now(), $3, NULL, NULL, '2099-03-02T07:50:00+07:00', '2099-03-02T08:00:00+07:00', $3, '2099-03-02T10:00:00+07:00', $3, NULL, NULL),
         ($1, $3, '2099-03-03', '09:00', '11:00', 'confirmed', NULL, now(), $3, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL),
         ($1, $3, '2099-03-04', '10:00', '11:00', 'cancelled', now(), NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL),
         ($2, $3, '2099-03-02', '09:00', '12:00', 'pending', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL),
         ($2, $3, '2099-03-03', '10:00', '11:00', 'rejected', NULL, now(), $3, 'Not available', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL),
-        ($2, $3, '2099-03-04', '11:00', '12:00', 'no_show', NULL, now(), $3, NULL, '654321', now(), NULL, NULL, NULL, NULL, now(), $3),
+        ($2, $3, '2099-03-04', '11:00', '12:00', 'no_show', NULL, now(), $3, NULL, NULL, NULL, NULL, NULL, NULL, NULL, '2099-03-04T12:00:00+07:00', $3),
         ($4, $3, '2099-03-02', '08:00', '12:00', 'confirmed', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL)`,
       [first, second, studentId, maintenanceResourceId],
     );
@@ -201,6 +201,13 @@ describe('Admin booking analytics (e2e)', () => {
         { hour: 11, label: '11:00', bookingCount: 3 },
       ],
     });
+    expect(
+      response.body.popularResources.map((item: { name: string }) => item.name),
+    ).toEqual([
+      'Analytics Room One',
+      'Analytics Room Two',
+      'Analytics Maintenance Room',
+    ]);
     expect(response.body.capacityHours).toBeGreaterThan(0);
     expect(response.body.scheduledHours).toBe(7);
     expect(response.body.utilizationRate).toBe(

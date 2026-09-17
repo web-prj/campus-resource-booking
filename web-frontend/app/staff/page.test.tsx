@@ -26,7 +26,7 @@ const staff = {
   createdAt: "2026-01-01T00:00:00.000Z",
 };
 const queue = { items: [], total: 0 };
-const operations = { items: [], total: 0 };
+const operations = { items: [], total: 0, campusDate: "2099-01-05" };
 
 describe("StaffDashboardPage", () => {
   beforeEach(() => {

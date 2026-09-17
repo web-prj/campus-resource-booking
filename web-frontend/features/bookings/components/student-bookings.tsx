@@ -246,7 +246,6 @@ export function StudentBookingDetail({ user, booking: initialBooking }: StudentB
     try {
       setBooking(await requestStudentCheckIn(booking.id));
       requestAnimationFrame(() => actionHeadingRef.current?.focus());
-      router.refresh();
     } catch (caught) {
       setError(
         caught instanceof BookingRequestError

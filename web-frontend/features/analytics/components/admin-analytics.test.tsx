@@ -29,10 +29,33 @@ describe("AdminAnalytics", () => {
     expect(metrics).toHaveTextContent("20.0%");
     expect(metrics).toHaveTextContent("8.0%");
     expect(screen.getByRole("heading", { name: "Booking status breakdown" })).toBeInTheDocument();
+    expect(screen.getByText("Qualifying requests touching each hour")).toBeInTheDocument();
     expect(screen.getByRole("img", { name: /09:00: 3 bookings/ })).toBeInTheDocument();
+    expect(screen.getByText("requested hours")).toBeInTheDocument();
     expect(screen.getByText("Study Room A101")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Metric definitions" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Analytics" })).toHaveAttribute("aria-current", "page");
+  });
+
+  it("describes excluded-only demand without claiming occupancy", () => {
+    render(<AdminAnalytics user={user} summary={{
+      ...summary,
+      scheduledHours: 0,
+      utilizationRate: 0,
+      resourcesRepresented: 0,
+      statuses: statuses.map((item) => ({
+        ...item,
+        count: item.status === "cancelled" ? 5 : 0,
+        percentage: item.status === "cancelled" ? 100 : 0,
+      })),
+      cancelledBookings: 5,
+      cancellationRate: 100,
+      popularResources: [],
+      peakHours: [],
+    }} />);
+    expect(screen.getByText("No qualifying booking demand by hour in this range.")).toBeInTheDocument();
+    expect(screen.getByText("No qualifying resource demand in this range.")).toBeInTheDocument();
+    expect(screen.queryByText("No scheduled occupancy hours in this range.")).not.toBeInTheDocument();
   });
 
   it("renders an actionable empty range without pretending data exists", () => {

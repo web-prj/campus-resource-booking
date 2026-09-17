@@ -131,8 +131,14 @@ export class StaffOperationsQueueResponseDto {
   @ApiProperty({ type: StaffBookingResponseDto, isArray: true })
   items: StaffBookingResponseDto[];
 
-  @ApiProperty({ description: 'Total operational bookings today' })
+  @ApiProperty({ description: 'Total current or overdue operational bookings' })
   total: number;
+
+  @ApiProperty({
+    description: 'Campus date used to scope and label this operations snapshot',
+    example: '2026-09-16',
+  })
+  campusDate: string;
 }
 
 export class StaffResourceScheduleResponseDto {

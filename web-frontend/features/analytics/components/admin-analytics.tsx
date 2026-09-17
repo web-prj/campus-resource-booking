@@ -83,16 +83,16 @@ export function AdminAnalytics({ user, summary }: { user: User; summary: Analyti
               </section>
 
               <section className={styles.panel} aria-labelledby="peak-title">
-                <div className={styles.panelHeading}><div><p className={styles.context}>Operating-day rhythm</p><h2 id="peak-title">Peak booking hours</h2></div><span>Concurrent scheduled bookings</span></div>
+                <div className={styles.panelHeading}><div><p className={styles.context}>Operating-day rhythm</p><h2 id="peak-title">Peak booking hours</h2></div><span>Qualifying requests touching each hour</span></div>
                 {summary.peakHours.length ? <div className={styles.hourChart} role="img" aria-label={summary.peakHours.map((item) => `${item.label}: ${item.bookingCount} bookings`).join(", ")}>
                   {summary.peakHours.map((item) => <div key={item.hour}><span>{item.bookingCount}</span><i style={{ "--value": `${Math.max(8, (item.bookingCount / peakMax) * 100)}%` } as React.CSSProperties} /><small>{item.label}</small></div>)}
-                </div> : <p className={styles.inlineEmpty}>No scheduled occupancy hours in this range.</p>}
+                </div> : <p className={styles.inlineEmpty}>No qualifying booking demand by hour in this range.</p>}
               </section>
             </div>
 
             <section className={styles.ranking} aria-labelledby="popular-title">
               <div className={styles.panelHeading}><div><p className={styles.context}>Resource demand</p><h2 id="popular-title">Most-booked resources</h2></div><span>Cancelled and rejected requests excluded</span></div>
-              {summary.popularResources.length ? <ol>{summary.popularResources.map((resource, index) => <li key={resource.id}><span>{index + 1}</span><div><strong>{resource.name}</strong><small>{resource.code} · {resource.building}</small></div><p><strong>{resource.bookingCount}</strong><span>bookings</span></p><p><strong>{resource.bookedHours}</strong><span>hours</span></p></li>)}</ol> : <p className={styles.inlineEmpty}>No resources have scheduled occupancy in this range.</p>}
+              {summary.popularResources.length ? <ol>{summary.popularResources.map((resource, index) => <li key={resource.id}><span>{index + 1}</span><div><strong>{resource.name}</strong><small>{resource.code} · {resource.building}</small></div><p><strong>{resource.bookingCount}</strong><span>bookings</span></p><p><strong>{resource.bookedHours}</strong><span>requested hours</span></p></li>)}</ol> : <p className={styles.inlineEmpty}>No qualifying resource demand in this range.</p>}
             </section>
           </>
         )}

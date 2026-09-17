@@ -46,6 +46,22 @@ function isCalendarDate(value: unknown): value is string {
   );
 }
 
+function isValidTimestamp(value: unknown): value is string {
+  return typeof value === "string" && !Number.isNaN(Date.parse(value));
+}
+
+function isAtOrAfter(left: string | null, right: string | null): boolean {
+  return (
+    left === null ||
+    right === null ||
+    new Date(left).getTime() >= new Date(right).getTime()
+  );
+}
+
+function campusBookingEndMs(date: string, endTime: string): number {
+  return new Date(`${date}T${endTime}:00+07:00`).getTime();
+}
+
 function parseBookingResource(value: unknown): BookingResourceSummary | null {
   if (!isRecord(value)) return null;
   const { id, code, name, type, location, buildingCode, buildingName } = value;
@@ -159,14 +175,10 @@ export function parseStudentBooking(value: unknown): StudentBooking | null {
     typeof hasEnded !== "boolean" ||
     (checkInCode !== null &&
       (typeof checkInCode !== "string" || !/^\d{6}$/.test(checkInCode))) ||
-    (checkInRequestedAt !== null &&
-      (typeof checkInRequestedAt !== "string" || Number.isNaN(Date.parse(checkInRequestedAt)))) ||
-    (checkedInAt !== null &&
-      (typeof checkedInAt !== "string" || Number.isNaN(Date.parse(checkedInAt)))) ||
-    (checkedOutAt !== null &&
-      (typeof checkedOutAt !== "string" || Number.isNaN(Date.parse(checkedOutAt)))) ||
-    (noShowAt !== null &&
-      (typeof noShowAt !== "string" || Number.isNaN(Date.parse(noShowAt)))) ||
+    (checkInRequestedAt !== null && !isValidTimestamp(checkInRequestedAt)) ||
+    (checkedInAt !== null && !isValidTimestamp(checkedInAt)) ||
+    (checkedOutAt !== null && !isValidTimestamp(checkedOutAt)) ||
+    (noShowAt !== null && !isValidTimestamp(noShowAt)) ||
     (cancelledAt !== null &&
       (typeof cancelledAt !== "string" || Number.isNaN(Date.parse(cancelledAt)))) ||
     (reviewedAt !== null &&
@@ -181,14 +193,31 @@ export function parseStudentBooking(value: unknown): StudentBooking | null {
     (status === "rejected"
       ? canCancel || reviewedAt === null || !rejectionReason
       : rejectionReason !== null) ||
-    ((checkInCode === null) !== (checkInRequestedAt === null)) ||
+    (checkInRequestedAt === null
+      ? checkInCode !== null ||
+        status === "checked_in" ||
+        status === "completed"
+      : status === "confirmed"
+        ? checkInCode === null
+        : !["checked_in", "completed", "no_show"].includes(status) ||
+          checkInCode !== null) ||
     (status === "checked_in"
-      ? checkedInAt === null || checkedOutAt !== null || noShowAt !== null
+      ? checkedInAt === null ||
+        checkInRequestedAt === null ||
+        checkedOutAt !== null ||
+        noShowAt !== null
       : status === "completed"
-        ? checkedInAt === null || checkedOutAt === null || noShowAt !== null
+        ? checkedInAt === null ||
+          checkInRequestedAt === null ||
+          checkedOutAt === null ||
+          noShowAt !== null
         : status === "no_show"
           ? noShowAt === null || checkedInAt !== null || checkedOutAt !== null
           : checkedInAt !== null || checkedOutAt !== null || noShowAt !== null) ||
+    !isAtOrAfter(checkedInAt, checkInRequestedAt) ||
+    !isAtOrAfter(checkedOutAt, checkedInAt) ||
+    (noShowAt !== null &&
+      new Date(noShowAt).getTime() < campusBookingEndMs(date, endTime)) ||
     (canRequestCheckIn &&
       (status !== "confirmed" || checkInRequestedAt !== null)) ||
     (hasEnded && (canCancel || canRequestCheckIn))
@@ -340,12 +369,9 @@ export function parseStaffBooking(value: unknown): StaffBooking | null {
     typeof canConfirmCheckIn !== "boolean" ||
     typeof canCheckOut !== "boolean" ||
     typeof canMarkNoShow !== "boolean" ||
-    (checkedInAt !== null &&
-      (typeof checkedInAt !== "string" || Number.isNaN(Date.parse(checkedInAt)))) ||
-    (checkedOutAt !== null &&
-      (typeof checkedOutAt !== "string" || Number.isNaN(Date.parse(checkedOutAt)))) ||
-    (noShowAt !== null &&
-      (typeof noShowAt !== "string" || Number.isNaN(Date.parse(noShowAt)))) ||
+    (checkedInAt !== null && !isValidTimestamp(checkedInAt)) ||
+    (checkedOutAt !== null && !isValidTimestamp(checkedOutAt)) ||
+    (noShowAt !== null && !isValidTimestamp(noShowAt)) ||
     !parsedResource ||
     !parsedRequester ||
     (reviewer !== null && !parsedReviewer) ||
@@ -359,14 +385,24 @@ export function parseStaffBooking(value: unknown): StaffBooking | null {
       ? reviewedAt === null || reviewer === null || !rejectionReason
       : rejectionReason !== null) ||
     (status === "checked_in"
-      ? checkedInAt === null || checkedOutAt !== null || noShowAt !== null
+      ? checkedInAt === null ||
+        !checkInRequested ||
+        checkedOutAt !== null ||
+        noShowAt !== null
       : status === "completed"
-        ? checkedInAt === null || checkedOutAt === null || noShowAt !== null
+        ? checkedInAt === null ||
+          !checkInRequested ||
+          checkedOutAt === null ||
+          noShowAt !== null
         : status === "no_show"
           ? noShowAt === null || checkedInAt !== null || checkedOutAt !== null
           : checkedInAt !== null || checkedOutAt !== null || noShowAt !== null) ||
+    !isAtOrAfter(checkedOutAt, checkedInAt) ||
+    (noShowAt !== null &&
+      new Date(noShowAt).getTime() < campusBookingEndMs(date, endTime)) ||
     (canConfirmCheckIn &&
       (status !== "confirmed" || !checkInRequested)) ||
+    (canConfirmCheckIn && canMarkNoShow) ||
     (canCheckOut !== (status === "checked_in")) ||
     (canMarkNoShow && status !== "confirmed")
   ) {
@@ -437,26 +473,38 @@ export function parseStaffBookingQueue(value: unknown): StaffBookingQueue | null
 export function parseStaffOperationsQueue(
   value: unknown,
 ): StaffOperationsQueue | null {
-  if (!isRecord(value) || !Array.isArray(value.items) || typeof value.total !== "number") {
+  if (
+    !isRecord(value) ||
+    !Array.isArray(value.items) ||
+    typeof value.total !== "number" ||
+    !isCalendarDate(value.campusDate)
+  ) {
     return null;
   }
+
+  const campusDate = value.campusDate;
   const items = value.items.map(parseStaffBooking);
   if (
     value.total !== items.length ||
     items.some(
       (booking) =>
         booking === null ||
+        booking.date > campusDate ||
         (booking.status !== "confirmed" && booking.status !== "checked_in"),
     ) ||
     !hasUniqueStaffBookingIds(items) ||
     !isStaffBookingOrderStable(
       items,
-      (booking) => `${booking.startTime}:${booking.createdAt}`,
+      (booking) => `${booking.date}:${booking.startTime}:${booking.createdAt}`,
     )
   ) {
     return null;
   }
-  return { items: items as StaffBooking[], total: value.total };
+  return {
+    items: items as StaffBooking[],
+    total: value.total,
+    campusDate,
+  };
 }
 
 export function parseStaffResourceSchedule(

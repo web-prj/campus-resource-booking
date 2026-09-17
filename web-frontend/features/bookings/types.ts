@@ -95,7 +95,9 @@ export interface StaffBookingQueue {
   total: number;
 }
 
-export type StaffOperationsQueue = StaffBookingQueue;
+export interface StaffOperationsQueue extends StaffBookingQueue {
+  campusDate: string;
+}
 
 export interface StaffResourceSchedule {
   resourceId: string;

@@ -36,6 +36,19 @@ describe("admin user server API", () => {
     );
   });
 
+  it("accepts an empty out-of-range page for route canonicalization", async () => {
+    const page = {
+      items: [],
+      total: 1,
+      page: 99,
+      pageSize: 20,
+      totalPages: 1,
+    };
+    const request = vi.fn<typeof fetch>().mockResolvedValue(response(page));
+
+    await expect(getAdminUsers({ page: 99 }, request)).resolves.toEqual(page);
+  });
+
   it("accepts matching pagination metadata", async () => {
     const request = vi.fn<typeof fetch>().mockResolvedValue(response({ items: [user], total: 1, page: 1, pageSize: 20, totalPages: 1 }));
     await expect(getAdminUsers({ page: 1 }, request)).resolves.toMatchObject({ items: [user], total: 1 });

@@ -1,7 +1,12 @@
 import { randomInt } from 'crypto';
 import { Inject, Injectable } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
-import { DataSource, EntityManager, QueryFailedError } from 'typeorm';
+import {
+  DataSource,
+  EntityManager,
+  LessThanOrEqual,
+  QueryFailedError,
+} from 'typeorm';
 import {
   CAMPUS_CLOCK,
   CampusClock,
@@ -128,18 +133,25 @@ export class BookingsService {
   async findOperationsForStaff(): Promise<{
     bookings: Booking[];
     evaluatedAt: Date;
+    campusDate: string;
   }> {
     const evaluatedAt = this.clock();
     const date = this.campusDate(evaluatedAt);
     const bookings = await this.dataSource.getRepository(Booking).find({
       where: [
-        { date, status: BookingStatus.CONFIRMED },
-        { date, status: BookingStatus.CHECKED_IN },
+        {
+          date: LessThanOrEqual(date),
+          status: BookingStatus.CONFIRMED,
+        },
+        {
+          date: LessThanOrEqual(date),
+          status: BookingStatus.CHECKED_IN,
+        },
       ],
       relations: this.staffRelations(),
-      order: { startTime: 'ASC', createdAt: 'ASC' },
+      order: { date: 'ASC', startTime: 'ASC', createdAt: 'ASC' },
     });
-    return { bookings, evaluatedAt };
+    return { bookings, evaluatedAt, campusDate: date };
   }
 
   async findPendingForStaff(): Promise<{
@@ -257,6 +269,7 @@ export class BookingsService {
 
       await manager.getRepository(Booking).update(booking.id, {
         status: BookingStatus.CHECKED_IN,
+        checkInCode: null,
         checkedInAt: now,
         checkedInById: staffId,
       });
@@ -305,6 +318,7 @@ export class BookingsService {
 
       await manager.getRepository(Booking).update(booking.id, {
         status: BookingStatus.NO_SHOW,
+        checkInCode: null,
         noShowAt: now,
         noShowById: staffId,
       });

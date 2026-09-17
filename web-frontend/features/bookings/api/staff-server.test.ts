@@ -75,7 +75,11 @@ describe("staff booking server API", () => {
   });
 
   it("rejects malformed or duplicate queue and operations data", async () => {
-    const duplicate = { items: [booking, booking], total: 2 };
+    const duplicate = {
+      items: [booking, booking],
+      total: 2,
+      campusDate: "2099-01-05",
+    };
     await expect(
       getStaffBookingQueue(
         vi.fn<typeof fetch>().mockResolvedValue(response(duplicate)),

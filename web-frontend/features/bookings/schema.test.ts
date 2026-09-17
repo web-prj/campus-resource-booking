@@ -3,7 +3,9 @@ import {
   parseBookingRequestResult,
   parseStaffBooking,
   parseStaffBookingQueue,
+  parseStaffOperationsQueue,
   parseStaffResourceSchedule,
+  parseStudentBooking,
   parseStudentBookingTimeline,
 } from "./schema";
 
@@ -140,6 +142,44 @@ describe("staff booking schema", () => {
         staffBooking.date,
       ),
     ).toBeNull();
+
+    const previousDate = {
+      ...later,
+      date: "2099-01-04",
+      status: "confirmed",
+      canReview: false,
+    };
+    const currentDate = {
+      ...later,
+      id: "60000000-0000-4000-8000-000000000003",
+      status: "confirmed",
+      canReview: false,
+    };
+    expect(
+      parseStaffOperationsQueue({
+        items: [currentDate, previousDate],
+        total: 2,
+        campusDate: "2099-01-05",
+      }),
+    ).toBeNull();
+    expect(
+      parseStaffOperationsQueue({
+        items: [previousDate, currentDate],
+        total: 2,
+        campusDate: "2099-01-05",
+      }),
+    ).toEqual({
+      items: [previousDate, currentDate],
+      total: 2,
+      campusDate: "2099-01-05",
+    });
+    expect(
+      parseStaffOperationsQueue({
+        items: [{ ...currentDate, date: "2099-01-06" }],
+        total: 1,
+        campusDate: "2099-01-05",
+      }),
+    ).toBeNull();
   });
 });
 
@@ -169,6 +209,39 @@ describe("booking response schema", () => {
 });
 
 describe("student booking timeline schema", () => {
+  it("accepts consumed codes only in terminal check-in lifecycle states", () => {
+    const requestedAt = "2099-01-05T01:50:00.000Z";
+    const checkedInAt = "2099-01-05T02:00:00.000Z";
+    const checkedIn = {
+      ...studentBooking,
+      status: "checked_in",
+      canCancel: false,
+      checkInRequestedAt: requestedAt,
+      checkedInAt,
+    };
+    expect(parseStudentBooking(checkedIn)).toEqual(checkedIn);
+    expect(
+      parseStudentBooking({ ...checkedIn, checkInCode: "482193" }),
+    ).toBeNull();
+    expect(
+      parseStudentBooking({
+        ...checkedIn,
+        status: "completed",
+        checkedOutAt: "2099-01-05T01:59:59.000Z",
+      }),
+    ).toBeNull();
+    expect(
+      parseStudentBooking({
+        ...studentBooking,
+        status: "no_show",
+        canCancel: false,
+        hasEnded: true,
+        checkInRequestedAt: requestedAt,
+        noShowAt: "2099-01-05T02:59:59.000Z",
+      }),
+    ).toBeNull();
+  });
+
   it.each(["pending", "confirmed", "checked_in"] as const)(
     "accepts an ended %s booking in authoritative history",
     (status) => {
@@ -178,7 +251,10 @@ describe("student booking timeline schema", () => {
         canCancel: false,
         hasEnded: true,
         ...(status === "checked_in"
-          ? { checkedInAt: "2099-01-05T02:00:00.000Z" }
+          ? {
+              checkInRequestedAt: "2099-01-05T01:50:00.000Z",
+              checkedInAt: "2099-01-05T02:00:00.000Z",
+            }
           : {}),
       };
 

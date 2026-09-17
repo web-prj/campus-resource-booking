@@ -165,7 +165,7 @@ Confirm:
 - Package locks match package manifests.
 - The root README documents the deployed URLs and Docker lifecycle.
 - `.env` is ignored and deployment secrets come from the deployment platform.
-- PostgreSQL has a backup and restore procedure before production data is introduced.
+- PostgreSQL has a successful off-host backup and isolated restore drill using the procedure in the root README before production data is introduced.
 
 ## Rollback
 

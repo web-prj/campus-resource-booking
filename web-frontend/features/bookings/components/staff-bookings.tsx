@@ -51,6 +51,14 @@ function fullDate(date: string): string {
   }).format(new Date(`${date}T00:00:00+07:00`));
 }
 
+function shortDate(date: string): string {
+  return new Intl.DateTimeFormat("en-GB", {
+    day: "numeric",
+    month: "short",
+    timeZone: "Asia/Ho_Chi_Minh",
+  }).format(new Date(`${date}T00:00:00+07:00`));
+}
+
 function requestedAt(value: string): string {
   return new Intl.DateTimeFormat("en-GB", {
     dateStyle: "medium",
@@ -91,6 +99,7 @@ export function StaffApprovalQueue({
     (booking) => booking.canCheckOut,
   ).length;
   const oldest = queue.items[0];
+  const today = operations.campusDate;
 
   return (
     <main className={styles.page}>
@@ -109,7 +118,7 @@ export function StaffApprovalQueue({
 
         <section className={styles.summary} aria-label="Staff dashboard summary">
           <div><StatusIcon /><strong>{queue.total}</strong><span>Requests to review</span></div>
-          <div><CalendarIcon /><strong>{operations.total}</strong><span>Visits to manage today</span></div>
+          <div><CalendarIcon /><strong>{operations.total}</strong><span>Open visits to manage</span></div>
           <div><ShieldCheckIcon /><strong>{codeReady}</strong><span>Codes ready to verify</span></div>
           <div><ClockIcon /><strong>{activeVisits}</strong><span>Active visits</span></div>
           <div><ClockIcon /><strong>{oldest ? requestedAt(oldest.createdAt) : "—"}</strong><span>Oldest request</span></div>
@@ -117,7 +126,7 @@ export function StaffApprovalQueue({
 
         <section className={styles.queueSection} aria-labelledby="operations-title">
           <div className={styles.sectionHeading}>
-            <div><p>Today on campus</p><h2 id="operations-title">Arrivals and active visits</h2></div>
+            <div><p>Operational worklist</p><h2 id="operations-title">Arrivals and unresolved visits</h2></div>
             <span>{operations.total}</span>
           </div>
           {operations.items.length ? (
@@ -125,7 +134,9 @@ export function StaffApprovalQueue({
               {operations.items.map((booking) => (
                 <article className={styles.operationCard} key={booking.id}>
                   <span className={styles.status} data-status={booking.status}>{statusLabels[booking.status]}</span>
-                  <time dateTime={`${booking.date}T${booking.startTime}:00+07:00`}>{booking.startTime}–{booking.endTime} ICT</time>
+                  <time dateTime={`${booking.date}T${booking.startTime}:00+07:00`}>
+                    {booking.date < today ? `Overdue · ${shortDate(booking.date)}` : "Today"} · {booking.startTime}–{booking.endTime} ICT
+                  </time>
                   <h3>{booking.resource.name}</h3>
                   <p>{booking.requester.fullName} · {booking.resource.location}</p>
                   <strong>{booking.canCheckOut ? "Ready for checkout" : booking.canMarkNoShow ? "Ready for no-show review" : booking.canConfirmCheckIn ? "Code ready for staff" : booking.checkInRequested ? "Code generated · check-in unavailable" : "Awaiting student check-in"}</strong>
@@ -136,7 +147,7 @@ export function StaffApprovalQueue({
           ) : (
             <div className={styles.emptyState}>
               <ClockIcon />
-              <div><h3>No arrivals to manage today</h3><p>Confirmed bookings appear here on their scheduled campus date.</p></div>
+              <div><h3>No visits need attention</h3><p>Today&apos;s confirmed bookings and unresolved earlier visits appear here.</p></div>
             </div>
           )}
         </section>
@@ -213,6 +224,8 @@ export function StaffBookingDetail({
     if (isSaving) return;
     if (action === "check-in" && !/^\d{6}$/.test(checkInCode)) {
       setError("Enter the six-digit code shown on the student booking.");
+      setErrorCode("validation");
+      requestAnimationFrame(() => errorRef.current?.focus());
       return;
     }
     setIsSaving(true);

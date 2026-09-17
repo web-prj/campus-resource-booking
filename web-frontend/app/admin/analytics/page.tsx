@@ -13,10 +13,6 @@ export const metadata: Metadata = {
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 
-function first(value: string | string[] | undefined) {
-  return Array.isArray(value) ? value[0] : value;
-}
-
 function campusDate(now = new Date()): string {
   return new Intl.DateTimeFormat("en-CA", {
     year: "numeric",
@@ -53,11 +49,22 @@ export default async function AdminAnalyticsPage({ searchParams }: { searchParam
 
   const params = await searchParams;
   const defaults = defaultRange();
-  const fromValue = first(params.from);
-  const toValue = first(params.to);
-  const from = typeof fromValue === "string" && validDate(fromValue) ? fromValue : defaults.from;
-  const to = typeof toValue === "string" && validDate(toValue) ? toValue : defaults.to;
-  const range = validRange(from, to) ? { from, to } : defaults;
+  const hasRequestedRange = params.from !== undefined || params.to !== undefined;
+  let range = defaults;
+  if (hasRequestedRange) {
+    const fromValue = params.from;
+    const toValue = params.to;
+    if (
+      typeof fromValue !== "string" ||
+      typeof toValue !== "string" ||
+      !validDate(fromValue) ||
+      !validDate(toValue) ||
+      !validRange(fromValue, toValue)
+    ) {
+      redirect("/admin/analytics");
+    }
+    range = { from: fromValue, to: toValue };
+  }
   const summary = await getAdminAnalytics(range);
   return <AdminAnalytics user={user} summary={summary} />;
 }

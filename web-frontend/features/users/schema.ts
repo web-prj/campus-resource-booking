@@ -10,7 +10,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 export function parseAdminUser(value: unknown): AdminUser | null {
-  if (!isRecord(value)) return null;
+  if (!isRecord(value) || "passwordHash" in value) return null;
   const { id, email, fullName, role, isActive, createdAt, updatedAt } = value;
   if (
     typeof id !== "string" ||
@@ -25,7 +25,8 @@ export function parseAdminUser(value: unknown): AdminUser | null {
     typeof createdAt !== "string" ||
     Number.isNaN(Date.parse(createdAt)) ||
     typeof updatedAt !== "string" ||
-    Number.isNaN(Date.parse(updatedAt))
+    Number.isNaN(Date.parse(updatedAt)) ||
+    new Date(updatedAt).getTime() < new Date(createdAt).getTime()
   ) {
     return null;
   }
@@ -58,11 +59,28 @@ export function parseAdminUserPage(value: unknown): AdminUserPage | null {
     pageSize > 50 ||
     typeof totalPages !== "number" ||
     !Number.isInteger(totalPages) ||
-    totalPages !== (total === 0 ? 0 : Math.ceil(total / pageSize)) ||
-    items.length > pageSize ||
-    (total === 0 ? items.length !== 0 || page !== 1 : page > totalPages)
+    totalPages !== Math.ceil(total / pageSize)
   ) {
     return null;
   }
-  return { items: items as AdminUser[], total, page, pageSize, totalPages };
+
+  const parsedItems = items as AdminUser[];
+  const pageOffset = (page - 1) * pageSize;
+  const expectedItems =
+    pageOffset >= total ? 0 : Math.min(pageSize, total - pageOffset);
+  if (
+    parsedItems.length !== expectedItems ||
+    new Set(parsedItems.map((user) => user.id)).size !== parsedItems.length ||
+    parsedItems.some((user, index) => {
+      if (index === 0) return false;
+      const previous = parsedItems[index - 1];
+      const createdOrder =
+        new Date(previous.createdAt).getTime() -
+        new Date(user.createdAt).getTime();
+      return createdOrder < 0 || (createdOrder === 0 && previous.id > user.id);
+    })
+  ) {
+    return null;
+  }
+  return { items: parsedItems, total, page, pageSize, totalPages };
 }

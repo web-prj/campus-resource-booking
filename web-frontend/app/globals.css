@@ -1833,6 +1833,11 @@ svg {
   background: rgba(236, 34, 39, 0.065);
 }
 
+.form-alert:focus {
+  outline: 3px solid rgba(236, 34, 39, 0.42);
+  outline-offset: 3px;
+}
+
 .form-alert > span {
   width: 19px;
   height: 19px;
