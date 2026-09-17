@@ -70,7 +70,7 @@ describe('Resource discovery (e2e)', () => {
     ).toBe(false);
   });
 
-  it('searches resource identity, location, and building fields', async () => {
+  it('searches resource identity, location, and building fields literally', async () => {
     const byName = await api()
       .get('/api/resources?q=projector')
       .set('Cookie', studentCookie)
@@ -79,6 +79,22 @@ describe('Resource discovery (e2e)', () => {
       EQUIPMENT_ID,
     ]);
 
+    const byCode = await api()
+      .get('/api/resources?q=ROOM-A101')
+      .set('Cookie', studentCookie)
+      .expect(200);
+    expect(byCode.body.items.map((item: { id: string }) => item.id)).toEqual([
+      ROOM_A101_ID,
+    ]);
+
+    const byLocation = await api()
+      .get('/api/resources?q=first%20floor')
+      .set('Cookie', studentCookie)
+      .expect(200);
+    expect(
+      byLocation.body.items.map((item: { id: string }) => item.id),
+    ).toEqual([ROOM_A101_ID]);
+
     const byBuilding = await api()
       .get('/api/resources?q=laboratory%20building')
       .set('Cookie', studentCookie)
@@ -86,6 +102,12 @@ describe('Resource discovery (e2e)', () => {
     expect(
       byBuilding.body.items.map((item: { id: string }) => item.id),
     ).toEqual([LAB_L201_ID]);
+
+    const literalWildcard = await api()
+      .get('/api/resources?q=%25')
+      .set('Cookie', studentCookie)
+      .expect(200);
+    expect(literalWildcard.body.items).toEqual([]);
   });
 
   it('filters by building, type, capacity, and normalized amenity', async () => {
@@ -124,6 +146,15 @@ describe('Resource discovery (e2e)', () => {
     expect(amenity.body.items.map((item: { id: string }) => item.id)).toEqual([
       ROOM_A101_ID,
     ]);
+    const combined = await api()
+      .get(
+        `/api/resources?buildingId=${MAIN_BUILDING_ID}&type=room&minCapacity=8&amenity=DISPLAY`,
+      )
+      .set('Cookie', studentCookie)
+      .expect(200);
+    expect(combined.body.items.map((item: { id: string }) => item.id)).toEqual([
+      ROOM_A101_ID,
+    ]);
   });
 
   it('sorts and paginates with stable metadata', async () => {
@@ -147,6 +178,18 @@ describe('Resource discovery (e2e)', () => {
     });
     expect(page.body.items).toHaveLength(1);
     expect(page.body.items[0].id).toBe(ROOM_A101_ID);
+
+    const beyondLastPage = await api()
+      .get('/api/resources?page=99&pageSize=1')
+      .set('Cookie', studentCookie)
+      .expect(200);
+    expect(beyondLastPage.body).toMatchObject({
+      items: [],
+      total: 3,
+      page: 99,
+      pageSize: 1,
+      totalPages: 3,
+    });
   });
 
   it('lists buildings used by discovery filters', async () => {

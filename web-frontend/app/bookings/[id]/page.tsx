@@ -26,5 +26,11 @@ export default async function BookingDetailPage({ params }: BookingDetailPagePro
 
   const booking = await getStudentBooking(id);
   if (!booking) notFound();
-  return <StudentBookingDetail user={user} booking={booking} />;
+  return (
+    <StudentBookingDetail
+      key={`${booking.id}:${booking.status}:${booking.canCancel}:${booking.canRequestCheckIn}:${booking.hasEnded}:${booking.checkInRequestedAt ?? "none"}`}
+      user={user}
+      booking={booking}
+    />
+  );
 }

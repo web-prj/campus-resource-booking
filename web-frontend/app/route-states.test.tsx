@@ -12,6 +12,7 @@ describe("shared route states", () => {
     render(<Loading />);
     expect(screen.getByRole("main")).toHaveAttribute("aria-busy", "true");
     expect(screen.getByRole("heading", { name: "Preparing your workspace" })).toBeVisible();
+    expect(screen.getByText(/latest campus information for this page/)).toBeVisible();
     expect(screen.getByText(/Nothing is being changed/)).toBeVisible();
   });
 

@@ -1,7 +1,12 @@
 import { randomInt } from 'crypto';
 import { Inject, Injectable } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
-import { DataSource, EntityManager, QueryFailedError } from 'typeorm';
+import {
+  DataSource,
+  EntityManager,
+  LessThanOrEqual,
+  QueryFailedError,
+} from 'typeorm';
 import {
   CAMPUS_CLOCK,
   CampusClock,
@@ -90,6 +95,7 @@ export class BookingsService {
   async findForStudent(requesterId: string): Promise<{
     upcoming: Booking[];
     history: Booking[];
+    evaluatedAt: Date;
   }> {
     const bookings = await this.dataSource.getRepository(Booking).find({
       where: { requesterId },
@@ -107,7 +113,11 @@ export class BookingsService {
     history.sort((left, right) =>
       this.bookingStart(right).localeCompare(this.bookingStart(left)),
     );
-    return { upcoming, history };
+    return { upcoming, history, evaluatedAt: now };
+  }
+
+  currentTime(): Date {
+    return this.clock();
   }
 
   async findOneForStudent(
@@ -120,24 +130,46 @@ export class BookingsService {
     });
   }
 
-  async findOperationsForStaff(): Promise<Booking[]> {
-    const date = this.campusDate(this.clock());
-    return this.dataSource.getRepository(Booking).find({
+  async findOperationsForStaff(): Promise<{
+    bookings: Booking[];
+    evaluatedAt: Date;
+    campusDate: string;
+  }> {
+    const evaluatedAt = this.clock();
+    const date = this.campusDate(evaluatedAt);
+    const bookings = await this.dataSource.getRepository(Booking).find({
       where: [
-        { date, status: BookingStatus.CONFIRMED },
-        { date, status: BookingStatus.CHECKED_IN },
+        {
+          date: LessThanOrEqual(date),
+          status: BookingStatus.CONFIRMED,
+        },
+        {
+          date: LessThanOrEqual(date),
+          status: BookingStatus.CHECKED_IN,
+        },
       ],
       relations: this.staffRelations(),
-      order: { startTime: 'ASC', createdAt: 'ASC' },
+      order: { date: 'ASC', startTime: 'ASC', createdAt: 'ASC' },
     });
+    return { bookings, evaluatedAt, campusDate: date };
   }
 
-  async findPendingForStaff(): Promise<Booking[]> {
-    return this.dataSource.getRepository(Booking).find({
+  async findPendingForStaff(): Promise<{
+    bookings: Booking[];
+    evaluatedAt: Date;
+  }> {
+    const evaluatedAt = this.clock();
+    const bookings = await this.dataSource.getRepository(Booking).find({
       where: { status: BookingStatus.PENDING },
       relations: this.staffRelations(),
       order: { createdAt: 'ASC' },
     });
+    return {
+      bookings: bookings.filter((booking) =>
+        this.canReview(booking, evaluatedAt),
+      ),
+      evaluatedAt,
+    };
   }
 
   async findOneForStaff(bookingId: string): Promise<Booking | null> {
@@ -150,12 +182,14 @@ export class BookingsService {
   async findResourceSchedule(
     resourceId: string,
     date: string,
-  ): Promise<Booking[]> {
-    return this.dataSource.getRepository(Booking).find({
+  ): Promise<{ bookings: Booking[]; evaluatedAt: Date }> {
+    const evaluatedAt = this.clock();
+    const bookings = await this.dataSource.getRepository(Booking).find({
       where: { resourceId, date },
       relations: this.staffRelations(),
       order: { startTime: 'ASC', createdAt: 'ASC' },
     });
+    return { bookings, evaluatedAt };
   }
 
   async approve(reviewerId: string, bookingId: string): Promise<Booking> {
@@ -235,6 +269,7 @@ export class BookingsService {
 
       await manager.getRepository(Booking).update(booking.id, {
         status: BookingStatus.CHECKED_IN,
+        checkInCode: null,
         checkedInAt: now,
         checkedInById: staffId,
       });
@@ -283,6 +318,7 @@ export class BookingsService {
 
       await manager.getRepository(Booking).update(booking.id, {
         status: BookingStatus.NO_SHOW,
+        checkInCode: null,
         noShowAt: now,
         noShowById: staffId,
       });
@@ -336,6 +372,17 @@ export class BookingsService {
     );
   }
 
+  hasEnded(booking: Booking, now: Date = this.clock()): boolean {
+    return now.getTime() >= this.bookingEndMs(booking);
+  }
+
+  canReview(booking: Booking, now: Date = this.clock()): boolean {
+    return (
+      booking.status === BookingStatus.PENDING &&
+      now.getTime() < this.bookingEndMs(booking)
+    );
+  }
+
   canConfirmCheckIn(booking: Booking, now: Date = this.clock()): boolean {
     return (
       booking.status === BookingStatus.CONFIRMED &&
@@ -377,10 +424,17 @@ export class BookingsService {
           'Only pending booking requests can be reviewed',
         );
       }
+      const reviewedAt = this.clock();
+      if (!this.canReview(booking, reviewedAt)) {
+        throw new BookingDomainError(
+          'BOOKING_REVIEW_WINDOW_ENDED',
+          'This booking request can no longer be reviewed because its scheduled time has ended',
+        );
+      }
 
       await manager.getRepository(Booking).update(booking.id, {
         status,
-        reviewedAt: this.clock(),
+        reviewedAt,
         reviewedById: reviewerId,
         rejectionReason,
       });

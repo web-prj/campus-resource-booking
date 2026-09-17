@@ -167,6 +167,76 @@ describe('BookingsService', () => {
     });
   });
 
+  it('enforces exact check-in and no-show capability boundaries', () => {
+    const harness = createHarness();
+    const booking = {
+      status: BookingStatus.CONFIRMED,
+      date: '2026-09-15',
+      startTime: '09:00:00',
+      endTime: '10:00:00',
+      checkInRequestedAt: null,
+    } as Booking;
+    const beforeWindow = new Date('2026-09-15T01:44:59.999Z');
+    const atWindow = new Date('2026-09-15T01:45:00.000Z');
+    const beforeEnd = new Date('2026-09-15T02:59:59.999Z');
+    const atEnd = new Date('2026-09-15T03:00:00.000Z');
+
+    expect(harness.service.canRequestCheckIn(booking, beforeWindow)).toBe(
+      false,
+    );
+    expect(harness.service.canRequestCheckIn(booking, atWindow)).toBe(true);
+    expect(harness.service.canRequestCheckIn(booking, beforeEnd)).toBe(true);
+    expect(harness.service.canRequestCheckIn(booking, atEnd)).toBe(false);
+    expect(
+      harness.service.canConfirmCheckIn(
+        { ...booking, checkInRequestedAt: atWindow },
+        atWindow,
+      ),
+    ).toBe(true);
+    expect(harness.service.canMarkNoShow(booking, beforeEnd)).toBe(false);
+    expect(harness.service.canMarkNoShow(booking, atEnd)).toBe(true);
+  });
+
+  it('reports whether a pending booking remains reviewable', () => {
+    const harness = createHarness();
+    const booking = {
+      status: BookingStatus.PENDING,
+      date: '2026-09-15',
+      startTime: '08:00:00',
+      endTime: '09:00:00',
+    } as Booking;
+
+    expect(
+      harness.service.canReview(booking, new Date('2026-09-15T01:59:59.999Z')),
+    ).toBe(true);
+    expect(
+      harness.service.canReview(booking, new Date('2026-09-15T02:00:00.000Z')),
+    ).toBe(false);
+    expect(
+      harness.service.canReview(
+        { ...booking, status: BookingStatus.CONFIRMED },
+        new Date('2026-09-15T01:00:00.000Z'),
+      ),
+    ).toBe(false);
+  });
+
+  it('reports whether a booking has reached its scheduled end', () => {
+    const harness = createHarness();
+    const booking = {
+      date: '2026-09-15',
+      startTime: '06:00:00',
+      endTime: '07:00:00',
+    } as Booking;
+
+    expect(harness.service.hasEnded(booking)).toBe(true);
+    expect(
+      harness.service.hasEnded(
+        { ...booking, endTime: '10:00:00' },
+        new Date('2026-09-15T02:59:59.999Z'),
+      ),
+    ).toBe(false);
+  });
+
   it('translates only the named PostgreSQL overlap exclusion', async () => {
     const overlap = Object.assign(new Error('overlap'), {
       code: '23P01',

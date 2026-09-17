@@ -64,33 +64,39 @@ export class UsersService {
     pageSize: number;
     totalPages: number;
   }> {
-    const query = this.usersRepository
-      .createQueryBuilder('user')
-      .orderBy('user.createdAt', 'DESC')
-      .addOrderBy('user.id', 'ASC');
+    return this.usersRepository.manager.transaction(
+      'REPEATABLE READ',
+      async (manager) => {
+        const query = manager
+          .getRepository(User)
+          .createQueryBuilder('user')
+          .orderBy('user.createdAt', 'DESC')
+          .addOrderBy('user.id', 'ASC');
 
-    if (q) {
-      query.andWhere(
-        `(user.fullName ILIKE :search ESCAPE '\\' OR user.email ILIKE :search ESCAPE '\\')`,
-        { search: `%${this.escapeLike(q)}%` },
-      );
-    }
-    if (role) query.andWhere('user.role = :role', { role });
-    if (isActive !== undefined) {
-      query.andWhere('user.isActive = :isActive', { isActive });
-    }
+        if (q) {
+          query.andWhere(
+            `(user.fullName ILIKE :search ESCAPE '\\' OR user.email ILIKE :search ESCAPE '\\')`,
+            { search: `%${this.escapeLike(q)}%` },
+          );
+        }
+        if (role) query.andWhere('user.role = :role', { role });
+        if (isActive !== undefined) {
+          query.andWhere('user.isActive = :isActive', { isActive });
+        }
 
-    const [items, total] = await query
-      .skip((page - 1) * pageSize)
-      .take(pageSize)
-      .getManyAndCount();
-    return {
-      items,
-      total,
-      page,
-      pageSize,
-      totalPages: total === 0 ? 0 : Math.ceil(total / pageSize),
-    };
+        const [items, total] = await query
+          .skip((page - 1) * pageSize)
+          .take(pageSize)
+          .getManyAndCount();
+        return {
+          items,
+          total,
+          page,
+          pageSize,
+          totalPages: total === 0 ? 0 : Math.ceil(total / pageSize),
+        };
+      },
+    );
   }
 
   async updateRole(
@@ -153,6 +159,10 @@ export class UsersService {
 
       const { removesActiveAdmin, ...updates } = change(target);
       if (removesActiveAdmin) {
+        await manager.query(
+          'SELECT pg_advisory_xact_lock($1)',
+          [2_045_173_001],
+        );
         const activeAdmins = await repository.count({
           where: { role: UserRole.ADMIN, isActive: true },
         });

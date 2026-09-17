@@ -103,6 +103,7 @@
 .detailFacts dd { margin: 5px 0 0; font-size: .82rem; font-weight: 750; text-transform: capitalize; }
 .actionPanel > svg { background: var(--usth-red); }
 .actionPanel h2 { margin: 15px 0 0; font-family: var(--font-display); font-size: 1.35rem; }
+.actionPanel h2:focus { outline: 3px solid rgba(42,60,149,.2); outline-offset: 3px; }
 .actionPanel > p { margin: 9px 0 0; color: var(--muted); font-size: .8rem; line-height: 1.6; }
 .checkInButton { width: 100%; min-height: 48px; margin-top: 20px; color: white; border: 0; border-radius: 11px; background: var(--usth-blue); cursor: pointer; font-weight: 800; }
 .checkInButton:disabled { cursor: wait; opacity: .68; }
@@ -117,7 +118,11 @@
 .confirmCancel button { min-height: 40px; border: 1px solid rgba(42,60,149,.15); border-radius: 9px; background: white; cursor: pointer; font-weight: 760; }
 .confirmCancel button:last-child { color: white; border-color: var(--usth-red); background: var(--usth-red); }
 .actionPanel > a { min-height: 44px; display: flex; align-items: center; justify-content: space-between; margin-top: 18px; padding-top: 14px; color: var(--usth-blue); border-top: 1px solid rgba(42,60,149,.1); font-size: .78rem; font-weight: 800; }
-.actionError { color: var(--usth-red-dark) !important; }
+.actionError { margin: 0; color: var(--usth-red-dark) !important; }
+.actionError:focus { outline: 3px solid rgba(42,60,149,.2); outline-offset: 2px; }
+.actionRecovery { display: grid; gap: 10px; margin-top: 16px; }
+.actionRecovery > a, .actionRecovery > button { min-height: 44px; display: inline-flex; align-items: center; justify-content: center; padding: 0 14px; color: var(--usth-blue); border: 1px solid rgba(42,60,149,.18); border-radius: 10px; background: white; cursor: pointer; font: inherit; font-size: .78rem; font-weight: 800; text-decoration: none; }
+.actionRecovery > a:focus-visible, .actionRecovery > button:focus-visible { outline: 3px solid rgba(42,60,149,.2); outline-offset: 2px; }
 
 @media (max-width: 760px) {
   .header { min-height: 68px; gap: 12px; padding-inline: 15px; }

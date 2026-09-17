@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { getSafeRedirect } from "@/features/auth/routing";
 import { BrandMark } from "@/components/brand-mark";
 import {
   ArrowRightIcon,
@@ -50,6 +51,14 @@ function fullDate(date: string): string {
   }).format(new Date(`${date}T00:00:00+07:00`));
 }
 
+function shortDate(date: string): string {
+  return new Intl.DateTimeFormat("en-GB", {
+    day: "numeric",
+    month: "short",
+    timeZone: "Asia/Ho_Chi_Minh",
+  }).format(new Date(`${date}T00:00:00+07:00`));
+}
+
 function requestedAt(value: string): string {
   return new Intl.DateTimeFormat("en-GB", {
     dateStyle: "medium",
@@ -90,6 +99,7 @@ export function StaffApprovalQueue({
     (booking) => booking.canCheckOut,
   ).length;
   const oldest = queue.items[0];
+  const today = operations.campusDate;
 
   return (
     <main className={styles.page}>
@@ -108,7 +118,7 @@ export function StaffApprovalQueue({
 
         <section className={styles.summary} aria-label="Staff dashboard summary">
           <div><StatusIcon /><strong>{queue.total}</strong><span>Requests to review</span></div>
-          <div><CalendarIcon /><strong>{operations.total}</strong><span>Visits to manage today</span></div>
+          <div><CalendarIcon /><strong>{operations.total}</strong><span>Open visits to manage</span></div>
           <div><ShieldCheckIcon /><strong>{codeReady}</strong><span>Codes ready to verify</span></div>
           <div><ClockIcon /><strong>{activeVisits}</strong><span>Active visits</span></div>
           <div><ClockIcon /><strong>{oldest ? requestedAt(oldest.createdAt) : "—"}</strong><span>Oldest request</span></div>
@@ -116,7 +126,7 @@ export function StaffApprovalQueue({
 
         <section className={styles.queueSection} aria-labelledby="operations-title">
           <div className={styles.sectionHeading}>
-            <div><p>Today on campus</p><h2 id="operations-title">Arrivals and active visits</h2></div>
+            <div><p>Operational worklist</p><h2 id="operations-title">Arrivals and unresolved visits</h2></div>
             <span>{operations.total}</span>
           </div>
           {operations.items.length ? (
@@ -124,7 +134,9 @@ export function StaffApprovalQueue({
               {operations.items.map((booking) => (
                 <article className={styles.operationCard} key={booking.id}>
                   <span className={styles.status} data-status={booking.status}>{statusLabels[booking.status]}</span>
-                  <time dateTime={`${booking.date}T${booking.startTime}:00+07:00`}>{booking.startTime}–{booking.endTime} ICT</time>
+                  <time dateTime={`${booking.date}T${booking.startTime}:00+07:00`}>
+                    {booking.date < today ? `Overdue · ${shortDate(booking.date)}` : "Today"} · {booking.startTime}–{booking.endTime} ICT
+                  </time>
                   <h3>{booking.resource.name}</h3>
                   <p>{booking.requester.fullName} · {booking.resource.location}</p>
                   <strong>{booking.canCheckOut ? "Ready for checkout" : booking.canMarkNoShow ? "Ready for no-show review" : booking.canConfirmCheckIn ? "Code ready for staff" : booking.checkInRequested ? "Code generated · check-in unavailable" : "Awaiting student check-in"}</strong>
@@ -135,7 +147,7 @@ export function StaffApprovalQueue({
           ) : (
             <div className={styles.emptyState}>
               <ClockIcon />
-              <div><h3>No arrivals to manage today</h3><p>Confirmed bookings appear here on their scheduled campus date.</p></div>
+              <div><h3>No visits need attention</h3><p>Today&apos;s confirmed bookings and unresolved earlier visits appear here.</p></div>
             </div>
           )}
         </section>
@@ -196,8 +208,13 @@ export function StaffBookingDetail({
   const [checkInCode, setCheckInCode] = useState("");
   const [reason, setReason] = useState("");
   const [error, setError] = useState("");
+  const [errorCode, setErrorCode] = useState<StaffBookingActionError["code"] | null>(null);
   const reasonRef = useRef<HTMLTextAreaElement>(null);
+  const errorRef = useRef<HTMLParagraphElement>(null);
   const outcomeRef = useRef<HTMLHeadingElement>(null);
+  const signInHref = `/login?next=${encodeURIComponent(
+    getSafeRedirect(`/staff/bookings/${booking.id}`, "/staff"),
+  )}`;
 
   useEffect(() => {
     if (mode === "rejecting") reasonRef.current?.focus();
@@ -207,10 +224,13 @@ export function StaffBookingDetail({
     if (isSaving) return;
     if (action === "check-in" && !/^\d{6}$/.test(checkInCode)) {
       setError("Enter the six-digit code shown on the student booking.");
+      setErrorCode("validation");
+      requestAnimationFrame(() => errorRef.current?.focus());
       return;
     }
     setIsSaving(true);
     setError("");
+    setErrorCode(null);
     try {
       const updated = action === "check-in"
         ? await confirmStaffCheckIn(booking.id, checkInCode)
@@ -219,13 +239,15 @@ export function StaffBookingDetail({
           : await markStaffBookingNoShow(booking.id);
       setBooking(updated);
       requestAnimationFrame(() => outcomeRef.current?.focus());
-      router.refresh();
     } catch (caught) {
+      const actionError =
+        caught instanceof StaffBookingActionError ? caught : null;
       setError(
-        caught instanceof StaffBookingActionError
-          ? caught.message
-          : "This visit update could not be saved. Try again.",
+        actionError?.message ??
+          "This visit update could not be saved. Try again.",
       );
+      setErrorCode(actionError?.code ?? "unexpected");
+      requestAnimationFrame(() => errorRef.current?.focus());
     } finally {
       setIsSaving(false);
     }
@@ -240,31 +262,35 @@ export function StaffBookingDetail({
     }
     setIsSaving(true);
     setError("");
+    setErrorCode(null);
     try {
       const updated = action === "approve"
         ? await approveStaffBooking(booking.id)
         : await rejectStaffBooking(booking.id, reason.trim());
       setBooking(updated);
       requestAnimationFrame(() => outcomeRef.current?.focus());
-      router.refresh();
     } catch (caught) {
+      const actionError =
+        caught instanceof StaffBookingActionError ? caught : null;
       setError(
-        caught instanceof StaffBookingActionError
-          ? caught.message
-          : "This review could not be saved. Try again.",
+        actionError?.message ?? "This review could not be saved. Try again.",
       );
+      setErrorCode(actionError?.code ?? "unexpected");
       setMode(action === "reject" ? "rejecting" : "idle");
+      requestAnimationFrame(() => errorRef.current?.focus());
     } finally {
       setIsSaving(false);
     }
   }
 
-  const activeSchedule = schedule.bookings.filter(
-    (item) =>
-      item.status === "pending" ||
-      item.status === "confirmed" ||
-      item.status === "checked_in",
-  );
+  const activeSchedule = schedule.bookings
+    .map((item) => (item.id === booking.id ? booking : item))
+    .filter(
+      (item) =>
+        (item.status === "pending" && item.canReview) ||
+        item.status === "confirmed" ||
+        item.status === "checked_in",
+    );
 
   return (
     <main className={styles.page}>
@@ -296,14 +322,16 @@ export function StaffBookingDetail({
             <div className={styles.decision} aria-labelledby="decision-title">
               <h2 ref={outcomeRef} tabIndex={-1} id="decision-title">
                 {booking.status === "pending"
-                  ? "Record your decision"
+                  ? booking.canReview
+                    ? "Record your decision"
+                    : "Approval window ended"
                   : booking.status === "confirmed"
                     ? "Confirm campus arrival"
                     : booking.status === "checked_in"
                       ? "Complete this visit"
                       : `${statusLabels[booking.status]} by staff`}
               </h2>
-              {booking.status === "pending" ? (
+              {booking.status === "pending" && booking.canReview ? (
                 <>
                   <p>Approval confirms the booking. Rejection releases the interval immediately.</p>
                   {mode === "rejecting" ? (
@@ -320,7 +348,7 @@ export function StaffBookingDetail({
                       />
                       <div id="rejection-help"><span>Shared with the student</span><span>{reason.length}/500</span></div>
                       <div className={styles.decisionButtons}>
-                        <button type="button" disabled={isSaving} onClick={() => { setMode("idle"); setError(""); }}>Keep pending</button>
+                        <button type="button" disabled={isSaving} onClick={() => { setMode("idle"); setError(""); setErrorCode(null); }}>Keep pending</button>
                         <button type="button" disabled={isSaving} onClick={() => void review("reject")}>
                           {isSaving ? "Rejecting…" : "Reject request"}
                         </button>
@@ -333,6 +361,14 @@ export function StaffBookingDetail({
                     </div>
                   )}
                 </>
+              ) : booking.status === "pending" ? (
+                <div className={styles.outcome} data-status={booking.status}>
+                  <strong>Request remains pending</strong>
+                  <span>
+                    The scheduled time has ended, so this request can no longer
+                    be approved or rejected.
+                  </span>
+                </div>
               ) : booking.status === "confirmed" ? (
                 <>
                   <p>{booking.checkInRequested ? "Enter the six-digit code shown by the student." : "The student has not generated a check-in code yet."}</p>
@@ -373,7 +409,25 @@ export function StaffBookingDetail({
                   {booking.rejectionReason && <p>{booking.rejectionReason}</p>}
                 </div>
               )}
-              {error && <p className={styles.actionError} role="alert">{error}</p>}
+              {error && (
+                <div className={styles.errorRecovery}>
+                  <p
+                    ref={errorRef}
+                    tabIndex={-1}
+                    className={styles.actionError}
+                    role="alert"
+                  >
+                    {error}
+                  </p>
+                  {errorCode === "session" ? (
+                    <Link href={signInHref}>Sign in again</Link>
+                  ) : errorCode === "conflict" || errorCode === "not-found" ? (
+                    <button type="button" onClick={() => router.refresh()}>
+                      Refresh booking details
+                    </button>
+                  ) : null}
+                </div>
+              )}
             </div>
           </section>
 

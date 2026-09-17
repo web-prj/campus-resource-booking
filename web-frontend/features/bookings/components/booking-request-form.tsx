@@ -33,6 +33,7 @@ export function BookingRequestForm({
 }: BookingRequestFormProps) {
   const router = useRouter();
   const lockRef = useRef(false);
+  const resultRef = useRef<HTMLDivElement>(null);
   const errorRef = useRef<HTMLParagraphElement>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [result, setResult] = useState<BookingRequestResult | null>(null);
@@ -58,6 +59,7 @@ export function BookingRequestForm({
     try {
       const created = await createBookingRequest(input, user.id);
       setResult(created);
+      requestAnimationFrame(() => resultRef.current?.focus());
     } catch (caught) {
       const message =
         caught instanceof BookingRequestError
@@ -92,7 +94,15 @@ export function BookingRequestForm({
           <p>Selected booking interval</p>
           <h3 id="booking-request-title">Request this resource</h3>
         </div>
-        <span>{requiresApproval ? "Staff approval" : "Immediate confirmation"}</span>
+        <span>
+          {result
+            ? result.status === "pending"
+              ? "Staff approval"
+              : "Confirmed"
+            : requiresApproval
+              ? "Staff approval"
+              : "Immediate confirmation"}
+        </span>
       </div>
 
       <dl className={styles.summary}>
@@ -111,7 +121,14 @@ export function BookingRequestForm({
       </dl>
 
       {result ? (
-        <div className={styles.result} data-status={result.status} role="status" aria-live="polite">
+        <div
+          ref={resultRef}
+          className={styles.result}
+          data-status={result.status}
+          role="status"
+          aria-live="polite"
+          tabIndex={-1}
+        >
           <strong>
             {result.status === "pending"
               ? "Request sent — pending staff approval."

@@ -86,7 +86,8 @@ export function parseAnalyticsSummary(value: unknown): AnalyticsSummary | null {
     !count(scheduledHours) || !count(capacityHours) ||
     (utilizationRate !== null && !nonNegative(utilizationRate)) ||
     (capacityHours === 0 ? scheduledHours !== 0 || utilizationRate !== null : utilizationRate !== percentage(scheduledHours, capacityHours)) ||
-    !count(resourcesRepresented) || !Array.isArray(statuses) || !Array.isArray(popularResources) ||
+    !count(resourcesRepresented) || resourcesRepresented > totalBookings ||
+    !Array.isArray(statuses) || !Array.isArray(popularResources) ||
     !Array.isArray(peakHours) || typeof definition !== "string" || definition.length < 40
   ) return null;
 
@@ -95,14 +96,18 @@ export function parseAnalyticsSummary(value: unknown): AnalyticsSummary | null {
   const parsedPeaks = peakHours.map(parsePeak);
   if (
     parsedStatuses.some((item) => item === null) || parsedStatuses.length !== STATUSES.length ||
-    new Set(parsedStatuses.map((item) => item?.status)).size !== STATUSES.length ||
+    parsedStatuses.some((item, index) => item?.status !== STATUSES[index]) ||
     parsedStatuses.reduce((sum, item) => sum + (item?.count ?? 0), 0) !== totalBookings ||
     parsedStatuses.some((item) => item!.percentage !== percentage(item!.count, totalBookings)) ||
     parsedStatuses.find((item) => item!.status === "cancelled")!.count !== cancelledBookings ||
     parsedResources.some((item) => item === null) || parsedResources.length > 5 ||
+    new Set(parsedResources.map((item) => item?.id)).size !== parsedResources.length ||
+    new Set(parsedResources.map((item) => item?.code)).size !== parsedResources.length ||
     parsedResources.length !== Math.min(resourcesRepresented, 5) ||
+    parsedResources.reduce((sum, item) => sum + (item?.bookingCount ?? 0), 0) > totalBookings ||
     parsedResources.some((item) => item!.bookingCount > totalBookings) ||
-    parsedResources.some((item, index) => index > 0 && item!.bookingCount > parsedResources[index - 1]!.bookingCount) ||
+    parsedResources.some((item, index) =>
+      index > 0 && item!.bookingCount > parsedResources[index - 1]!.bookingCount) ||
     parsedPeaks.some((item) => item === null) ||
     parsedPeaks.some((item, index) => index > 0 && item!.hour <= parsedPeaks[index - 1]!.hour) ||
     parsedPeaks.some((item) => item!.bookingCount > totalBookings)

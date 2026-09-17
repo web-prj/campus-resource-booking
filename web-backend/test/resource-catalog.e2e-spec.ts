@@ -148,6 +148,28 @@ const invalidCatalogChanges: InvalidCatalogChange[] = [
     errorCode: '23514',
   },
   {
+    name: 'capacity above the supported maximum',
+    query: `
+      INSERT INTO resources (
+        code,
+        name,
+        type,
+        capacity,
+        location,
+        building_id
+      ) VALUES ($1, $2, $3, $4, $5, $6)
+    `,
+    parameters: [
+      'INVALID-MAX-CAPACITY',
+      'Invalid resource',
+      'room',
+      10001,
+      'Test location',
+      '10000000-0000-4000-8000-000000000001',
+    ],
+    errorCode: '23514',
+  },
+  {
     name: 'deleting buildings that still contain resources',
     query: `DELETE FROM buildings WHERE code = $1`,
     parameters: ['MAIN'],

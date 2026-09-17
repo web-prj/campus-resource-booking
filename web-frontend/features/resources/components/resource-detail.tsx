@@ -70,8 +70,14 @@ export function ResourceDetail({
   checkedDate,
   selectedSlot,
 }: ResourceDetailProps) {
+  const scheduleDaysValue = availability?.operatingDays ?? resource.operatingDays;
+  const scheduleOpensAt = availability?.opensAt ?? resource.opensAt;
+  const scheduleClosesAt = availability?.closesAt ?? resource.closesAt;
+  const requiresApproval =
+    availability?.requiresApproval ?? resource.requiresApproval;
+  const operationalStatus = availability?.status ?? resource.status;
   const statusDescription =
-    resource.status === "active"
+    operationalStatus === "active"
       ? "Listed in the student directory"
       : "Unavailable for operational use";
 
@@ -119,8 +125,8 @@ export function ResourceDetail({
             </div>
           </div>
 
-          <div className={styles.heroStatus} data-status={resource.status}>
-            <span>{statusLabels[resource.status]}</span>
+          <div className={styles.heroStatus} data-status={operationalStatus}>
+            <span>{statusLabels[operationalStatus]}</span>
             <p>{statusDescription}</p>
           </div>
         </section>
@@ -137,8 +143,8 @@ export function ResourceDetail({
               <p>Operational schedule</p>
               <h2 id="availability-title">Check availability</h2>
               <span>
-                {scheduleDays(resource.operatingDays)} · {resource.opensAt}–
-                {resource.closesAt} ICT (UTC+7)
+                {scheduleDays(scheduleDaysValue)} · {scheduleOpensAt}–
+                {scheduleClosesAt} ICT (UTC+7)
               </span>
             </div>
           </div>
@@ -229,7 +235,7 @@ export function ResourceDetail({
                     key={`${availability.date}:${selectedSlot.startTime}:${selectedSlot.endTime}`}
                     user={user}
                     resourceName={resource.name}
-                    requiresApproval={resource.requiresApproval}
+                    requiresApproval={requiresApproval}
                     input={{
                       resourceId: resource.id,
                       date: availability.date,
@@ -245,10 +251,14 @@ export function ResourceDetail({
           <div className={styles.availabilityPolicy}>
             <ShieldCheckIcon />
             <span>
-              {resource.requiresApproval
-                ? "A future booking request for this resource will require staff approval."
-                : "No staff approval is required by this resource’s current policy."}{" "}
-              Select a slot to review and send a booking request.
+              {availability
+                ? requiresApproval
+                  ? "When this date was checked, the resource required staff approval."
+                  : "When this date was checked, the resource permitted immediate confirmation."
+                : requiresApproval
+                  ? "The resource currently requires staff approval."
+                  : "The resource currently permits immediate confirmation."}{" "}
+              The policy and availability are checked again when the request is sent.
             </span>
           </div>
         </section>
@@ -279,7 +289,7 @@ export function ResourceDetail({
                     <ShieldCheckIcon /> Approval policy
                   </dt>
                   <dd>
-                    {resource.requiresApproval
+                    {requiresApproval
                       ? "Staff approval required"
                       : "No staff approval required"}
                   </dd>

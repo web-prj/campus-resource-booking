@@ -18,6 +18,7 @@ describe('Check-in and checkout (e2e)', () => {
   let studentCookie: string;
   let staffCookie: string;
   let studentId: string;
+  let staffId: string;
   let resourceId: string;
   let now = new Date('2099-01-20T01:50:00.000Z'); // 08:50 ICT
 
@@ -48,7 +49,8 @@ describe('Check-in and checkout (e2e)', () => {
     const student = await register(STUDENT_EMAIL, 'Check-in Student');
     studentId = student.id;
     studentCookie = student.cookie;
-    await register(STAFF_EMAIL, 'Check-in Staff');
+    const staff = await register(STAFF_EMAIL, 'Check-in Staff');
+    staffId = staff.id;
     await dataSource.query(
       `UPDATE users SET role = 'staff'::users_role_enum WHERE email = $1`,
       [STAFF_EMAIL],
@@ -97,10 +99,20 @@ describe('Check-in and checkout (e2e)', () => {
       .set('Cookie', staffCookie)
       .expect(403);
 
-    const requested = await api()
-      .patch(`/api/bookings/mine/${bookingId}/check-in`)
-      .set('Cookie', studentCookie)
-      .expect(200);
+    const generationResponses = await Promise.all([
+      api()
+        .patch(`/api/bookings/mine/${bookingId}/check-in`)
+        .set('Cookie', studentCookie),
+      api()
+        .patch(`/api/bookings/mine/${bookingId}/check-in`)
+        .set('Cookie', studentCookie),
+    ]);
+    expect(generationResponses.map(({ status }) => status).sort()).toEqual([
+      200, 409,
+    ]);
+    const requested = generationResponses.find(
+      ({ status }) => status === 200,
+    ) as request.Response;
     expect(requested.body).toMatchObject({
       id: bookingId,
       status: 'confirmed',
@@ -134,22 +146,33 @@ describe('Check-in and checkout (e2e)', () => {
       .send({ code: '000000' })
       .expect(409);
 
-    const checkedIn = await api()
-      .patch(`/api/staff/bookings/${bookingId}/confirm-check-in`)
-      .set('Cookie', staffCookie)
-      .send({ code: requested.body.checkInCode })
-      .expect(200);
+    const checkInResponses = await Promise.all([
+      api()
+        .patch(`/api/staff/bookings/${bookingId}/confirm-check-in`)
+        .set('Cookie', staffCookie)
+        .send({ code: requested.body.checkInCode }),
+      api()
+        .patch(`/api/staff/bookings/${bookingId}/confirm-check-in`)
+        .set('Cookie', staffCookie)
+        .send({ code: requested.body.checkInCode }),
+    ]);
+    expect(checkInResponses.map(({ status }) => status).sort()).toEqual([
+      200, 409,
+    ]);
+    const checkedIn = checkInResponses.find(
+      ({ status }) => status === 200,
+    ) as request.Response;
     expect(checkedIn.body).toMatchObject({
       status: 'checked_in',
+      checkInRequested: true,
       canCheckOut: true,
       checkedInAt: expect.any(String),
     });
-
-    await api()
-      .patch(`/api/staff/bookings/${bookingId}/confirm-check-in`)
-      .set('Cookie', staffCookie)
-      .send({ code: requested.body.checkInCode })
-      .expect(409);
+    expect(checkedIn.body).not.toHaveProperty('checkInCode');
+    const [persistedAfterCheckIn] = await dataSource.query<
+      { check_in_code: string | null }[]
+    >('SELECT check_in_code FROM bookings WHERE id = $1', [bookingId]);
+    expect(persistedAfterCheckIn.check_in_code).toBeNull();
 
     const completed = await api()
       .patch(`/api/staff/bookings/${bookingId}/check-out`)
@@ -171,8 +194,57 @@ describe('Check-in and checkout (e2e)', () => {
       .expect(200);
     expect(studentDetail.body).toMatchObject({
       status: 'completed',
+      checkInCode: null,
+      checkInRequestedAt: expect.any(String),
       checkedInAt: expect.any(String),
       checkedOutAt: expect.any(String),
+    });
+  });
+
+  it('keeps overdue unresolved visits on the staff operations dashboard', async () => {
+    now = new Date('2099-01-20T08:00:00.000Z'); // 15:00 ICT
+    const rows = await dataSource.query<{ id: string; status: string }[]>(
+      `INSERT INTO bookings (
+        resource_id, requester_id, booking_date, start_time, end_time, status,
+        check_in_requested_at, checked_in_at, checked_in_by_id,
+        no_show_at, no_show_by_id
+      ) VALUES
+        ($1, $2, '2099-01-18', '09:00', '10:00', 'checked_in',
+          '2099-01-18T01:50:00.000Z', '2099-01-18T01:55:00.000Z', $3,
+          NULL, NULL),
+        ($1, $2, '2099-01-19', '09:00', '10:00', 'confirmed',
+          NULL, NULL, NULL, NULL, NULL),
+        ($1, $2, '2099-01-19', '11:00', '12:00', 'no_show',
+          NULL, NULL, NULL, '2099-01-19T05:00:00.000Z', $3),
+        ($1, $2, '2099-01-21', '09:00', '10:00', 'confirmed',
+          NULL, NULL, NULL, NULL, NULL)
+      RETURNING id, status`,
+      [resourceId, studentId, staffId],
+    );
+    const checkedInId = rows.find(({ status }) => status === 'checked_in')?.id;
+    const confirmedIds = rows
+      .filter(({ status }) => status === 'confirmed')
+      .map(({ id }) => id);
+    const noShowId = rows.find(({ status }) => status === 'no_show')?.id;
+
+    const operations = await api()
+      .get('/api/staff/bookings/operations')
+      .set('Cookie', staffCookie)
+      .expect(200);
+    const ids = operations.body.items.map((item: { id: string }) => item.id);
+
+    expect(ids).toEqual([checkedInId, confirmedIds[0]]);
+    expect(ids).not.toContain(noShowId);
+    expect(ids).not.toContain(confirmedIds[1]);
+    expect(operations.body.items).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: checkedInId, canCheckOut: true }),
+        expect.objectContaining({ id: confirmedIds[0], canMarkNoShow: true }),
+      ]),
+    );
+    expect(operations.body).toMatchObject({
+      total: 2,
+      campusDate: '2099-01-20',
     });
   });
 
@@ -196,6 +268,10 @@ describe('Check-in and checkout (e2e)', () => {
       .expect(409);
     await api()
       .patch(`/api/staff/bookings/${bookingId}/no-show`)
+      .set('Cookie', studentCookie)
+      .expect(403);
+    await api()
+      .patch(`/api/staff/bookings/${bookingId}/no-show`)
       .set('Cookie', staffCookie)
       .expect(409);
 
@@ -206,6 +282,7 @@ describe('Check-in and checkout (e2e)', () => {
       .expect(200);
     expect(noShow.body).toMatchObject({
       status: 'no_show',
+      checkInRequested: false,
       noShowAt: expect.any(String),
     });
     await api()
@@ -214,7 +291,46 @@ describe('Check-in and checkout (e2e)', () => {
       .expect(409);
   });
 
-  it('enforces lifecycle shape directly in PostgreSQL', async () => {
+  it('serializes check-in against no-show at the end boundary', async () => {
+    now = new Date('2099-01-20T05:50:00.000Z'); // 12:50 ICT
+    const created = await api()
+      .post('/api/bookings')
+      .set('Cookie', studentCookie)
+      .send({
+        resourceId,
+        date: '2099-01-20',
+        startTime: '13:00',
+        endTime: '14:00',
+      })
+      .expect(201);
+    const bookingId = created.body.id as string;
+    const requested = await api()
+      .patch(`/api/bookings/mine/${bookingId}/check-in`)
+      .set('Cookie', studentCookie)
+      .expect(200);
+
+    now = new Date('2099-01-20T07:00:00.000Z'); // 14:00 ICT
+    const responses = await Promise.all([
+      api()
+        .patch(`/api/staff/bookings/${bookingId}/confirm-check-in`)
+        .set('Cookie', staffCookie)
+        .send({ code: requested.body.checkInCode }),
+      api()
+        .patch(`/api/staff/bookings/${bookingId}/no-show`)
+        .set('Cookie', staffCookie),
+    ]);
+    expect(responses.map(({ status }) => status).sort()).toEqual([200, 409]);
+    const noShow = responses.find(
+      ({ status }) => status === 200,
+    ) as request.Response;
+    expect(noShow.body).toMatchObject({ status: 'no_show' });
+    const [persisted] = await dataSource.query<
+      { check_in_code: string | null; status: string }[]
+    >('SELECT status, check_in_code FROM bookings WHERE id = $1', [bookingId]);
+    expect(persisted).toEqual({ status: 'no_show', check_in_code: null });
+  });
+
+  it('enforces lifecycle shape and chronology directly in PostgreSQL', async () => {
     await expect(
       dataSource.query(
         `INSERT INTO bookings (
@@ -226,6 +342,49 @@ describe('Check-in and checkout (e2e)', () => {
     ).rejects.toMatchObject({
       code: '23514',
       constraint: 'CHK_bookings_check_in_request',
+    });
+    await expect(
+      dataSource.query(
+        `INSERT INTO bookings (
+          resource_id, requester_id, booking_date, start_time, end_time, status,
+          check_in_code, check_in_requested_at
+        ) VALUES ($1, $2, '2099-01-22', '09:00', '10:00', 'confirmed',
+          '123456', '2099-01-22T01:30:00.000Z')`,
+        [resourceId, studentId],
+      ),
+    ).rejects.toMatchObject({
+      code: '23514',
+      constraint: 'CHK_bookings_check_in_timeline',
+    });
+
+    await expect(
+      dataSource.query(
+        `INSERT INTO bookings (
+          resource_id, requester_id, booking_date, start_time, end_time, status,
+          check_in_requested_at, checked_in_at, checked_in_by_id,
+          checked_out_at, checked_out_by_id
+        ) VALUES ($1, $2, '2099-01-23', '09:00', '10:00', 'completed',
+          '2099-01-23T01:50:00.000Z', '2099-01-23T02:00:00.000Z', $3,
+          '2099-01-23T01:59:59.000Z', $3)`,
+        [resourceId, studentId, studentId],
+      ),
+    ).rejects.toMatchObject({
+      code: '23514',
+      constraint: 'CHK_bookings_check_in_timeline',
+    });
+
+    await expect(
+      dataSource.query(
+        `INSERT INTO bookings (
+          resource_id, requester_id, booking_date, start_time, end_time, status,
+          no_show_at, no_show_by_id
+        ) VALUES ($1, $2, '2099-01-24', '09:00', '10:00', 'no_show',
+          '2099-01-24T02:59:59.000Z', $3)`,
+        [resourceId, studentId, studentId],
+      ),
+    ).rejects.toMatchObject({
+      code: '23514',
+      constraint: 'CHK_bookings_no_show_timeline',
     });
   });
 });

@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useRef, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   ArrowRightIcon,
@@ -25,12 +25,17 @@ export function LoginForm({ redirectTo = "/dashboard" }: LoginFormProps) {
   const router = useRouter();
   const emailRef = useRef<HTMLInputElement>(null);
   const passwordRef = useRef<HTMLInputElement>(null);
+  const formErrorRef = useRef<HTMLDivElement>(null);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState<FormErrors>({});
   const [formError, setFormError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (formError) formErrorRef.current?.focus();
+  }, [formError]);
 
   function validate(): FormErrors {
     const nextErrors: FormErrors = {};
@@ -154,7 +159,7 @@ export function LoginForm({ redirectTo = "/dashboard" }: LoginFormProps) {
 
       <div className="login-form__status" aria-live="polite" aria-atomic="true">
         {formError && (
-          <div className="form-alert" role="alert">
+          <div ref={formErrorRef} className="form-alert" role="alert" tabIndex={-1}>
             <span aria-hidden="true">!</span>
             <p>{formError}</p>
           </div>

@@ -130,25 +130,24 @@ Use this file to track feature completion. Plan implementation details separatel
 
 ## MVP verification and release readiness
 
-- [ ] Complete student flow: register, search, book, check in, and view history
-- [ ] Complete staff flow: review, approve or reject, check in, and check out
-- [ ] Complete admin flow: manage resources, users, and basic analytics
-- [ ] Verify overlapping bookings cannot be created
-- [ ] Verify concurrent requests allow only one booking for a slot
-- [ ] Verify authentication and authorization across every role
-- [ ] Add backend unit and end-to-end coverage for new features
-- [ ] Add frontend component and route coverage for new features
-- [ ] Run full frontend and backend validation
-- [ ] Run desktop and mobile smoke tests
-- [ ] Review API documentation
-- [ ] Review migrations and database indexes
-- [ ] Prepare demo data
-- [ ] Prepare MVP deployment configuration
-- [ ] Complete final MVP smoke test
+- [x] Complete student flow: register, search, book, check in, and view history
+- [x] Complete staff flow: review, approve or reject, check in, and check out
+- [x] Complete admin flow: manage resources, users, and basic analytics
+- [x] Verify overlapping bookings cannot be created
+- [x] Verify concurrent requests allow only one booking for a slot
+- [x] Verify authentication and authorization across every role
+- [x] Add backend unit and end-to-end coverage for new features
+- [x] Add frontend component and route coverage for new features
+- [x] Run full frontend and backend validation
+- [x] Run desktop and mobile smoke tests
+- [x] Review API documentation
+- [x] Review migrations and database indexes
+- [x] Prepare demo data
+- [x] Prepare MVP deployment configuration
+- [x] Complete final MVP smoke test
 
 ## Post-MVP enhancements
 
-- [ ] Email or in-app notifications
 - [ ] QR-code check-in
 - [ ] Real-time availability updates
 - [ ] Redis caching
@@ -158,4 +157,3 @@ Use this file to track feature completion. Plan implementation details separatel
 - [ ] Advanced analytics and exports
 - [ ] Recurring bookings
 - [ ] Waitlists
-- [ ] Calendar integration

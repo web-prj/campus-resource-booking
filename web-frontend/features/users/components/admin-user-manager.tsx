@@ -1,7 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import {
+  FormEvent,
+  KeyboardEvent,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useRouter } from "next/navigation";
 import { BrandMark } from "@/components/brand-mark";
 import { PeopleIcon, SearchIcon, ShieldCheckIcon } from "@/components/icons";
@@ -46,12 +53,17 @@ export function AdminUserManager({
 }) {
   const router = useRouter();
   const [users, setUsers] = useState(directory.items);
+  const [total, setTotal] = useState(directory.total);
   const [pending, setPending] = useState<PendingChange | null>(null);
   const [isMutating, setIsMutating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [errorCode, setErrorCode] = useState<UserMutationError["code"] | null>(
+    null,
+  );
   const [result, setResult] = useState<string | null>(null);
   const confirmRef = useRef<HTMLDivElement>(null);
   const resultRef = useRef<HTMLParagraphElement>(null);
+  const triggerRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
     if (pending) confirmRef.current?.focus();
@@ -61,50 +73,109 @@ export function AdminUserManager({
   }, [result]);
 
   const range = useMemo(() => {
-    if (directory.total === 0) return "No accounts";
+    if (total === 0) return "No accounts";
     const start = (directory.page - 1) * directory.pageSize + 1;
     const end = start + users.length - 1;
-    return `${start}–${end} of ${directory.total} accounts`;
-  }, [directory, users.length]);
+    return `${start}–${end} of ${total} accounts`;
+  }, [directory.page, directory.pageSize, total, users.length]);
+  const totalPages = total === 0 ? 0 : Math.ceil(total / directory.pageSize);
 
-  function beginRole(user: AdminUser, role: UserRole) {
+  function matchesFilters(user: AdminUser): boolean {
+    return (
+      (!filters.role || user.role === filters.role) &&
+      (!filters.status ||
+        user.isActive === (filters.status === "active"))
+    );
+  }
+
+  function beginRole(
+    user: AdminUser,
+    role: UserRole,
+    trigger: HTMLElement,
+  ) {
     if (role === user.role) return;
+    triggerRef.current = trigger;
     setError(null);
+    setErrorCode(null);
     setResult(null);
     setPending({ kind: "role", user, role });
   }
 
-  function beginStatus(user: AdminUser) {
+  function beginStatus(user: AdminUser, trigger: HTMLElement) {
+    triggerRef.current = trigger;
     setError(null);
+    setErrorCode(null);
     setResult(null);
     setPending({ kind: "status", user, isActive: !user.isActive });
+  }
+
+  function closeConfirmation() {
+    if (isMutating) return;
+    setPending(null);
+    setError(null);
+    setErrorCode(null);
+    requestAnimationFrame(() => triggerRef.current?.focus());
+  }
+
+  function handleDialogKeyDown(event: KeyboardEvent<HTMLDivElement>) {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      closeConfirmation();
+      return;
+    }
+    if (event.key !== "Tab") return;
+
+    const controls = Array.from(
+      event.currentTarget.querySelectorAll<HTMLElement>(
+        'button:not(:disabled), a[href]',
+      ),
+    );
+    const first = controls[0];
+    const last = controls.at(-1);
+    if (!first || !last) return;
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
   }
 
   async function confirmChange() {
     if (!pending) return;
     setIsMutating(true);
     setError(null);
+    setErrorCode(null);
     try {
       const updated =
         pending.kind === "role"
           ? await updateUserRole(pending.user.id, pending.role)
           : await updateUserStatus(pending.user.id, pending.isActive);
-      setUsers((current) =>
-        current.map((user) => (user.id === updated.id ? updated : user)),
-      );
+      if (matchesFilters(updated)) {
+        setUsers((current) =>
+          current.map((user) => (user.id === updated.id ? updated : user)),
+        );
+      } else {
+        setUsers((current) =>
+          current.filter((user) => user.id !== updated.id),
+        );
+        setTotal((current) => Math.max(0, current - 1));
+      }
       setResult(
         pending.kind === "role"
           ? `${updated.fullName} is now ${roleLabels[updated.role].toLowerCase()}.`
           : `${updated.fullName}'s account is now ${updated.isActive ? "active" : "inactive"}.`,
       );
       setPending(null);
-      router.refresh();
     } catch (caught) {
+      const mutationError =
+        caught instanceof UserMutationError ? caught : null;
       setError(
-        caught instanceof UserMutationError
-          ? caught.message
-          : "The account could not be updated.",
+        mutationError?.message ?? "The account could not be updated.",
       );
+      setErrorCode(mutationError?.code ?? "unexpected");
+      requestAnimationFrame(() => confirmRef.current?.focus());
     } finally {
       setIsMutating(false);
     }
@@ -157,7 +228,7 @@ export function AdminUserManager({
         </form>
 
         {result && <p ref={resultRef} className={styles.result} role="status" tabIndex={-1}>{result}</p>}
-        {error && <p className={styles.error} role="alert">{error}{error.includes("session") && <> <Link href="/login?next=/admin/users">Sign in again</Link>.</>}</p>}
+        {error && !pending && <p className={styles.error} role="alert">{error}{error.includes("session") && <> <Link href="/login?next=/admin/users">Sign in again</Link>.</>}</p>}
 
         <section className={styles.directory} aria-labelledby="directory-title">
           <div className={styles.sectionHeading}>
@@ -177,19 +248,19 @@ export function AdminUserManager({
                   return <tr key={user.id} data-active={user.isActive}>
                     <td><div className={styles.account}><span aria-hidden="true">{user.fullName.slice(0, 1).toUpperCase()}</span><p><strong>{user.fullName}</strong><small>{user.email}</small>{self && <em>Current administrator</em>}</p></div></td>
                     <td><strong>{new Intl.DateTimeFormat("en-GB", { dateStyle: "medium" }).format(new Date(user.createdAt))}</strong><small>Account created</small></td>
-                    <td><label className={styles.control}><span className={styles.srOnly}>Role for {user.fullName}</span><select value={user.role} disabled={self || isMutating} onChange={(event) => beginRole(user, event.target.value as UserRole)}><option value="student">Student</option><option value="staff">Staff</option><option value="admin">Administrator</option></select></label></td>
-                    <td><div className={styles.access}><span data-active={user.isActive}>{user.isActive ? "Active" : "Inactive"}</span><button type="button" disabled={self || isMutating} onClick={() => beginStatus(user)}>{user.isActive ? "Deactivate" : "Activate"}</button></div></td>
+                    <td><label className={styles.control}><span className={styles.srOnly}>Role for {user.fullName}</span><select value={user.role} disabled={self || isMutating} onChange={(event) => beginRole(user, event.target.value as UserRole, event.currentTarget)}><option value="student">Student</option><option value="staff">Staff</option><option value="admin">Administrator</option></select></label></td>
+                    <td><div className={styles.access}><span data-active={user.isActive}>{user.isActive ? "Active" : "Inactive"}</span><button type="button" disabled={self || isMutating} onClick={(event) => beginStatus(user, event.currentTarget)}>{user.isActive ? "Deactivate" : "Activate"}</button></div></td>
                   </tr>;
                 })}</tbody>
               </table>
             </div>
           )}
 
-          {directory.totalPages > 1 && <nav className={styles.pagination} aria-label="User directory pages"><Link aria-disabled={directory.page === 1} tabIndex={directory.page === 1 ? -1 : undefined} href={directoryHref(filters, Math.max(1, directory.page - 1))}>Previous</Link><span>Page {directory.page} of {directory.totalPages}</span><Link aria-disabled={directory.page === directory.totalPages} tabIndex={directory.page === directory.totalPages ? -1 : undefined} href={directoryHref(filters, Math.min(directory.totalPages, directory.page + 1))}>Next</Link></nav>}
+          {totalPages > 1 && directory.page <= totalPages && <nav className={styles.pagination} aria-label="User directory pages"><Link aria-disabled={directory.page === 1} tabIndex={directory.page === 1 ? -1 : undefined} href={directoryHref(filters, Math.max(1, directory.page - 1))}>Previous</Link><span>Page {directory.page} of {totalPages}</span><Link aria-disabled={directory.page === totalPages} tabIndex={directory.page === totalPages ? -1 : undefined} href={directoryHref(filters, Math.min(totalPages, directory.page + 1))}>Next</Link></nav>}
         </section>
       </div>
 
-      {pending && <div className={styles.overlay} role="presentation"><div ref={confirmRef} className={styles.confirmation} role="alertdialog" aria-modal="true" aria-labelledby="change-title" aria-describedby="change-description" tabIndex={-1}><p className={styles.context}>Confirm access change</p><h2 id="change-title">{pending.kind === "role" ? `Assign ${roleLabels[pending.role]} role?` : `${pending.isActive ? "Activate" : "Deactivate"} this account?`}</h2><p id="change-description">{pending.kind === "role" ? `${pending.user.fullName} will receive ${roleLabels[pending.role].toLowerCase()} permissions on their next request.` : pending.isActive ? `${pending.user.fullName} will be able to sign in and use their assigned role again.` : `${pending.user.fullName} will be signed out on their next request. Their bookings and history will remain recorded.`}</p><div><button type="button" disabled={isMutating} onClick={() => setPending(null)}>Keep current access</button><button type="button" disabled={isMutating} onClick={() => void confirmChange()}>{isMutating ? "Saving…" : "Confirm change"}</button></div>{error && <p className={styles.error} role="alert">{error}</p>}</div></div>}
+      {pending && <div className={styles.overlay} role="presentation"><div ref={confirmRef} className={styles.confirmation} role="alertdialog" aria-modal="true" aria-labelledby="change-title" aria-describedby="change-description" tabIndex={-1} onKeyDown={handleDialogKeyDown}><p className={styles.context}>Confirm access change</p><h2 id="change-title">{pending.kind === "role" ? `Assign ${roleLabels[pending.role]} role?` : `${pending.isActive ? "Activate" : "Deactivate"} this account?`}</h2><p id="change-description">{pending.kind === "role" ? `${pending.user.fullName} will receive ${roleLabels[pending.role].toLowerCase()} permissions on their next request.` : pending.isActive ? `${pending.user.fullName} will be able to sign in and use their assigned role again.` : `${pending.user.fullName} will be signed out on their next request. Their bookings and history will remain recorded.`}</p><div><button type="button" disabled={isMutating} onClick={closeConfirmation}>Keep current access</button><button type="button" disabled={isMutating} onClick={() => void confirmChange()}>{isMutating ? "Saving…" : "Confirm change"}</button></div>{error && <div className={styles.dialogRecovery}><p className={styles.error} role="alert">{error}</p>{errorCode === "session" ? <Link href="/login?next=/admin/users">Sign in again</Link> : errorCode === "validation" || errorCode === "not-found" || errorCode === "forbidden" ? <button type="button" onClick={() => router.refresh()}>Refresh user directory</button> : null}</div>}</div></div>}
     </main>
   );
 }

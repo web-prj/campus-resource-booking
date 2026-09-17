@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   ArrowRightIcon,
@@ -30,6 +30,11 @@ interface FormErrors {
 
 export function RegisterForm({ redirectTo = "/dashboard" }: RegisterFormProps) {
   const router = useRouter();
+  const fullNameRef = useRef<HTMLInputElement>(null);
+  const emailRef = useRef<HTMLInputElement>(null);
+  const passwordRef = useRef<HTMLInputElement>(null);
+  const confirmPasswordRef = useRef<HTMLInputElement>(null);
+  const formErrorRef = useRef<HTMLDivElement>(null);
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -38,6 +43,10 @@ export function RegisterForm({ redirectTo = "/dashboard" }: RegisterFormProps) {
   const [errors, setErrors] = useState<FormErrors>({});
   const [formError, setFormError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (formError) formErrorRef.current?.focus();
+  }, [formError]);
 
   function validate(): FormErrors {
     const nextErrors: FormErrors = {};
@@ -76,7 +85,13 @@ export function RegisterForm({ redirectTo = "/dashboard" }: RegisterFormProps) {
     const nextErrors = validate();
     setErrors(nextErrors);
     setFormError("");
-    if (Object.keys(nextErrors).length > 0) return;
+    if (Object.keys(nextErrors).length > 0) {
+      if (nextErrors.fullName) fullNameRef.current?.focus();
+      else if (nextErrors.email) emailRef.current?.focus();
+      else if (nextErrors.password) passwordRef.current?.focus();
+      else confirmPasswordRef.current?.focus();
+      return;
+    }
 
     setIsSubmitting(true);
     try {
@@ -101,6 +116,7 @@ export function RegisterForm({ redirectTo = "/dashboard" }: RegisterFormProps) {
         <div className={`field-control${errors.fullName ? " field-control--error" : ""}`}>
           <UserIcon width={20} height={20} />
           <input
+            ref={fullNameRef}
             id="register-full-name"
             name="fullName"
             type="text"
@@ -130,6 +146,7 @@ export function RegisterForm({ redirectTo = "/dashboard" }: RegisterFormProps) {
         <div className={`field-control${errors.email ? " field-control--error" : ""}`}>
           <MailIcon width={20} height={20} />
           <input
+            ref={emailRef}
             id="register-email"
             name="email"
             type="email"
@@ -166,6 +183,7 @@ export function RegisterForm({ redirectTo = "/dashboard" }: RegisterFormProps) {
         <div className={`field-control${errors.password ? " field-control--error" : ""}`}>
           <LockIcon width={20} height={20} />
           <input
+            ref={passwordRef}
             id="register-password"
             name="password"
             type={showPassword ? "text" : "password"}
@@ -206,6 +224,7 @@ export function RegisterForm({ redirectTo = "/dashboard" }: RegisterFormProps) {
         <div className={`field-control${errors.confirmPassword ? " field-control--error" : ""}`}>
           <LockIcon width={20} height={20} />
           <input
+            ref={confirmPasswordRef}
             id="register-password-confirmation"
             name="confirmPassword"
             type={showPassword ? "text" : "password"}
@@ -231,7 +250,7 @@ export function RegisterForm({ redirectTo = "/dashboard" }: RegisterFormProps) {
 
       <div className="login-form__status" aria-live="polite" aria-atomic="true">
         {formError && (
-          <div className="form-alert" role="alert">
+          <div ref={formErrorRef} className="form-alert" role="alert" tabIndex={-1}>
             <span aria-hidden="true">!</span>
             <p>{formError}</p>
           </div>

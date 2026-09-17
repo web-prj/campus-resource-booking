@@ -33,10 +33,12 @@ describe("parseAnalyticsSummary", () => {
     { ...summary, cancellationRate: 1 },
     { ...summary, utilizationRate: 5 },
     { ...summary, from: "2099-02-30" },
+    { ...summary, statuses: [...statuses].reverse() },
     { ...summary, statuses: statuses.slice(1) },
     { ...summary, totalBookings: 3 },
     { ...summary, peakHours: [{ hour: 9, label: "10:00", bookingCount: 2 }] },
     { ...summary, popularResources: [{ ...summary.popularResources[0], id: "not-a-uuid" }] },
+    { ...summary, popularResources: [summary.popularResources[0], summary.popularResources[0]], resourcesRepresented: 2 },
     { ...summary, resourcesRepresented: 2, popularResources: [{ ...summary.popularResources[0], bookingCount: 1 }, { ...summary.popularResources[0], id: "20000000-0000-4000-8000-000000000002", bookingCount: 2 }] },
   ])("rejects inconsistent or malformed analytics", (value) => {
     expect(parseAnalyticsSummary(value)).toBeNull();

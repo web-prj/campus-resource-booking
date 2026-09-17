@@ -63,6 +63,9 @@ export class StudentBookingResponseDto {
   })
   canCancel: boolean;
 
+  @ApiProperty({ description: 'True once the scheduled interval has ended' })
+  hasEnded: boolean;
+
   @ApiProperty({ description: 'True while the student may generate a code' })
   canRequestCheckIn: boolean;
 
@@ -100,6 +103,7 @@ export class StudentBookingResponseDto {
     booking: Booking,
     canCancel: boolean,
     canRequestCheckIn: boolean,
+    hasEnded: boolean,
   ): StudentBookingResponseDto {
     return {
       id: booking.id,
@@ -110,6 +114,7 @@ export class StudentBookingResponseDto {
       status: booking.status,
       canCancel,
       canRequestCheckIn,
+      hasEnded,
       checkInCode: booking.checkInCode,
       checkInRequestedAt: booking.checkInRequestedAt,
       checkedInAt: booking.checkedInAt,

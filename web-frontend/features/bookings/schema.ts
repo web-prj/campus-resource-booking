@@ -46,6 +46,22 @@ function isCalendarDate(value: unknown): value is string {
   );
 }
 
+function isValidTimestamp(value: unknown): value is string {
+  return typeof value === "string" && !Number.isNaN(Date.parse(value));
+}
+
+function isAtOrAfter(left: string | null, right: string | null): boolean {
+  return (
+    left === null ||
+    right === null ||
+    new Date(left).getTime() >= new Date(right).getTime()
+  );
+}
+
+function campusBookingEndMs(date: string, endTime: string): number {
+  return new Date(`${date}T${endTime}:00+07:00`).getTime();
+}
+
 function parseBookingResource(value: unknown): BookingResourceSummary | null {
   if (!isRecord(value)) return null;
   const { id, code, name, type, location, buildingCode, buildingName } = value;
@@ -129,6 +145,7 @@ export function parseStudentBooking(value: unknown): StudentBooking | null {
     status,
     canCancel,
     canRequestCheckIn,
+    hasEnded,
     checkInCode,
     checkInRequestedAt,
     checkedInAt,
@@ -155,16 +172,13 @@ export function parseStudentBooking(value: unknown): StudentBooking | null {
     !STATUSES.has(status as BookingStatus) ||
     typeof canCancel !== "boolean" ||
     typeof canRequestCheckIn !== "boolean" ||
+    typeof hasEnded !== "boolean" ||
     (checkInCode !== null &&
       (typeof checkInCode !== "string" || !/^\d{6}$/.test(checkInCode))) ||
-    (checkInRequestedAt !== null &&
-      (typeof checkInRequestedAt !== "string" || Number.isNaN(Date.parse(checkInRequestedAt)))) ||
-    (checkedInAt !== null &&
-      (typeof checkedInAt !== "string" || Number.isNaN(Date.parse(checkedInAt)))) ||
-    (checkedOutAt !== null &&
-      (typeof checkedOutAt !== "string" || Number.isNaN(Date.parse(checkedOutAt)))) ||
-    (noShowAt !== null &&
-      (typeof noShowAt !== "string" || Number.isNaN(Date.parse(noShowAt)))) ||
+    (checkInRequestedAt !== null && !isValidTimestamp(checkInRequestedAt)) ||
+    (checkedInAt !== null && !isValidTimestamp(checkedInAt)) ||
+    (checkedOutAt !== null && !isValidTimestamp(checkedOutAt)) ||
+    (noShowAt !== null && !isValidTimestamp(noShowAt)) ||
     (cancelledAt !== null &&
       (typeof cancelledAt !== "string" || Number.isNaN(Date.parse(cancelledAt)))) ||
     (reviewedAt !== null &&
@@ -179,16 +193,34 @@ export function parseStudentBooking(value: unknown): StudentBooking | null {
     (status === "rejected"
       ? canCancel || reviewedAt === null || !rejectionReason
       : rejectionReason !== null) ||
-    ((checkInCode === null) !== (checkInRequestedAt === null)) ||
+    (checkInRequestedAt === null
+      ? checkInCode !== null ||
+        status === "checked_in" ||
+        status === "completed"
+      : status === "confirmed"
+        ? checkInCode === null
+        : !["checked_in", "completed", "no_show"].includes(status) ||
+          checkInCode !== null) ||
     (status === "checked_in"
-      ? checkedInAt === null || checkedOutAt !== null || noShowAt !== null
+      ? checkedInAt === null ||
+        checkInRequestedAt === null ||
+        checkedOutAt !== null ||
+        noShowAt !== null
       : status === "completed"
-        ? checkedInAt === null || checkedOutAt === null || noShowAt !== null
+        ? checkedInAt === null ||
+          checkInRequestedAt === null ||
+          checkedOutAt === null ||
+          noShowAt !== null
         : status === "no_show"
           ? noShowAt === null || checkedInAt !== null || checkedOutAt !== null
           : checkedInAt !== null || checkedOutAt !== null || noShowAt !== null) ||
+    !isAtOrAfter(checkedInAt, checkInRequestedAt) ||
+    !isAtOrAfter(checkedOutAt, checkedInAt) ||
+    (noShowAt !== null &&
+      new Date(noShowAt).getTime() < campusBookingEndMs(date, endTime)) ||
     (canRequestCheckIn &&
-      (status !== "confirmed" || checkInRequestedAt !== null))
+      (status !== "confirmed" || checkInRequestedAt !== null)) ||
+    (hasEnded && (canCancel || canRequestCheckIn))
   ) {
     return null;
   }
@@ -201,6 +233,7 @@ export function parseStudentBooking(value: unknown): StudentBooking | null {
     status: status as BookingStatus,
     canCancel,
     canRequestCheckIn,
+    hasEnded,
     checkInCode,
     checkInRequestedAt,
     checkedInAt,
@@ -212,6 +245,22 @@ export function parseStudentBooking(value: unknown): StudentBooking | null {
     createdAt,
     resource: parsedResource,
   };
+}
+
+function bookingStart(booking: StudentBooking | null): string {
+  return booking ? `${booking.date}T${booking.startTime}` : "";
+}
+
+function isChronological(
+  bookings: Array<StudentBooking | null>,
+  direction: "asc" | "desc",
+): boolean {
+  return bookings.every((booking, index) => {
+    if (index === 0) return true;
+    const previous = bookingStart(bookings[index - 1]);
+    const current = bookingStart(booking);
+    return direction === "asc" ? previous <= current : previous >= current;
+  });
 }
 
 export function parseStudentBookingTimeline(
@@ -226,17 +275,23 @@ export function parseStudentBookingTimeline(
   }
   const upcoming = value.upcoming.map(parseStudentBooking);
   const history = value.history.map(parseStudentBooking);
+  const bookings = [...upcoming, ...history];
   if (
     upcoming.some(
       (booking) =>
         booking === null ||
+        booking.hasEnded ||
         !["pending", "confirmed", "checked_in"].includes(booking.status),
     ) ||
     history.some(
       (booking) =>
         booking === null ||
-        ["pending", "confirmed", "checked_in"].includes(booking.status),
-    )
+        (["pending", "confirmed", "checked_in"].includes(booking.status) &&
+          !booking.hasEnded),
+    ) ||
+    new Set(bookings.map((booking) => booking?.id)).size !== bookings.length ||
+    !isChronological(upcoming, "asc") ||
+    !isChronological(history, "desc")
   ) {
     return null;
   }
@@ -274,6 +329,7 @@ export function parseStaffBooking(value: unknown): StaffBooking | null {
     createdAt,
     reviewedAt,
     rejectionReason,
+    canReview,
     checkInRequested,
     canConfirmCheckIn,
     canCheckOut,
@@ -304,35 +360,49 @@ export function parseStaffBooking(value: unknown): StaffBooking | null {
     Number.isNaN(Date.parse(createdAt)) ||
     (reviewedAt !== null &&
       (typeof reviewedAt !== "string" || Number.isNaN(Date.parse(reviewedAt)))) ||
-    (rejectionReason !== null && typeof rejectionReason !== "string") ||
+    (rejectionReason !== null &&
+      (typeof rejectionReason !== "string" ||
+        rejectionReason.length < 3 ||
+        rejectionReason.length > 500)) ||
+    typeof canReview !== "boolean" ||
     typeof checkInRequested !== "boolean" ||
     typeof canConfirmCheckIn !== "boolean" ||
     typeof canCheckOut !== "boolean" ||
     typeof canMarkNoShow !== "boolean" ||
-    (checkedInAt !== null &&
-      (typeof checkedInAt !== "string" || Number.isNaN(Date.parse(checkedInAt)))) ||
-    (checkedOutAt !== null &&
-      (typeof checkedOutAt !== "string" || Number.isNaN(Date.parse(checkedOutAt)))) ||
-    (noShowAt !== null &&
-      (typeof noShowAt !== "string" || Number.isNaN(Date.parse(noShowAt)))) ||
+    (checkedInAt !== null && !isValidTimestamp(checkedInAt)) ||
+    (checkedOutAt !== null && !isValidTimestamp(checkedOutAt)) ||
+    (noShowAt !== null && !isValidTimestamp(noShowAt)) ||
     !parsedResource ||
     !parsedRequester ||
     (reviewer !== null && !parsedReviewer) ||
+    ((reviewedAt === null) !== (reviewer === null)) ||
     (status === "pending"
-      ? reviewedAt !== null || reviewer !== null || rejectionReason !== null
-      : false) ||
+      ? reviewedAt !== null ||
+        reviewer !== null ||
+        rejectionReason !== null
+      : canReview) ||
     (status === "rejected"
       ? reviewedAt === null || reviewer === null || !rejectionReason
       : rejectionReason !== null) ||
     (status === "checked_in"
-      ? checkedInAt === null || checkedOutAt !== null || noShowAt !== null
+      ? checkedInAt === null ||
+        !checkInRequested ||
+        checkedOutAt !== null ||
+        noShowAt !== null
       : status === "completed"
-        ? checkedInAt === null || checkedOutAt === null || noShowAt !== null
+        ? checkedInAt === null ||
+          !checkInRequested ||
+          checkedOutAt === null ||
+          noShowAt !== null
         : status === "no_show"
           ? noShowAt === null || checkedInAt !== null || checkedOutAt !== null
           : checkedInAt !== null || checkedOutAt !== null || noShowAt !== null) ||
+    !isAtOrAfter(checkedOutAt, checkedInAt) ||
+    (noShowAt !== null &&
+      new Date(noShowAt).getTime() < campusBookingEndMs(date, endTime)) ||
     (canConfirmCheckIn &&
       (status !== "confirmed" || !checkInRequested)) ||
+    (canConfirmCheckIn && canMarkNoShow) ||
     (canCheckOut !== (status === "checked_in")) ||
     (canMarkNoShow && status !== "confirmed")
   ) {
@@ -348,6 +418,7 @@ export function parseStaffBooking(value: unknown): StaffBooking | null {
     createdAt,
     reviewedAt,
     rejectionReason,
+    canReview,
     checkInRequested,
     canConfirmCheckIn,
     canCheckOut,
@@ -361,23 +432,24 @@ export function parseStaffBooking(value: unknown): StaffBooking | null {
   };
 }
 
-export function parseStaffBookingQueue(value: unknown): StaffBookingQueue | null {
-  if (!isRecord(value) || !Array.isArray(value.items) || typeof value.total !== "number") {
-    return null;
-  }
-  const items = value.items.map(parseStaffBooking);
-  if (
-    value.total !== items.length ||
-    items.some((booking) => booking === null || booking.status !== "pending")
-  ) {
-    return null;
-  }
-  return { items: items as StaffBooking[], total: value.total };
+function hasUniqueStaffBookingIds(
+  bookings: Array<StaffBooking | null>,
+): boolean {
+  return new Set(bookings.map((booking) => booking?.id)).size === bookings.length;
 }
 
-export function parseStaffOperationsQueue(
-  value: unknown,
-): StaffOperationsQueue | null {
+function isStaffBookingOrderStable(
+  bookings: Array<StaffBooking | null>,
+  key: (booking: StaffBooking) => string,
+): boolean {
+  return bookings.every((booking, index) => {
+    if (!booking || index === 0) return booking !== null;
+    const previous = bookings[index - 1];
+    return previous !== null && key(previous) <= key(booking);
+  });
+}
+
+export function parseStaffBookingQueue(value: unknown): StaffBookingQueue | null {
   if (!isRecord(value) || !Array.isArray(value.items) || typeof value.total !== "number") {
     return null;
   }
@@ -387,12 +459,52 @@ export function parseStaffOperationsQueue(
     items.some(
       (booking) =>
         booking === null ||
-        (booking.status !== "confirmed" && booking.status !== "checked_in"),
-    )
+        booking.status !== "pending" ||
+        !booking.canReview,
+    ) ||
+    !hasUniqueStaffBookingIds(items) ||
+    !isStaffBookingOrderStable(items, (booking) => booking.createdAt)
   ) {
     return null;
   }
   return { items: items as StaffBooking[], total: value.total };
+}
+
+export function parseStaffOperationsQueue(
+  value: unknown,
+): StaffOperationsQueue | null {
+  if (
+    !isRecord(value) ||
+    !Array.isArray(value.items) ||
+    typeof value.total !== "number" ||
+    !isCalendarDate(value.campusDate)
+  ) {
+    return null;
+  }
+
+  const campusDate = value.campusDate;
+  const items = value.items.map(parseStaffBooking);
+  if (
+    value.total !== items.length ||
+    items.some(
+      (booking) =>
+        booking === null ||
+        booking.date > campusDate ||
+        (booking.status !== "confirmed" && booking.status !== "checked_in"),
+    ) ||
+    !hasUniqueStaffBookingIds(items) ||
+    !isStaffBookingOrderStable(
+      items,
+      (booking) => `${booking.date}:${booking.startTime}:${booking.createdAt}`,
+    )
+  ) {
+    return null;
+  }
+  return {
+    items: items as StaffBooking[],
+    total: value.total,
+    campusDate,
+  };
 }
 
 export function parseStaffResourceSchedule(
@@ -415,6 +527,11 @@ export function parseStaffResourceSchedule(
         booking === null ||
         booking.resource.id !== resourceId ||
         booking.date !== date,
+    ) ||
+    !hasUniqueStaffBookingIds(bookings) ||
+    !isStaffBookingOrderStable(
+      bookings,
+      (booking) => `${booking.startTime}:${booking.createdAt}`,
     )
   ) {
     return null;

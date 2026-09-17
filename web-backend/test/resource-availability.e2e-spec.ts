@@ -79,6 +79,8 @@ describe('Resource availability (e2e)', () => {
       resourceId: ROOM_A101_ID,
       date: OPEN_DATE,
       timeZone: 'Asia/Ho_Chi_Minh',
+      status: 'active',
+      operatingDays: [1, 2, 3, 4, 5, 6],
       opensAt: '08:00',
       closesAt: '18:00',
       blockedReason: null,

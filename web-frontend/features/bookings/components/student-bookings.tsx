@@ -216,14 +216,22 @@ export function StudentBookingDetail({ user, booking: initialBooking }: StudentB
   const [isCancelling, setIsCancelling] = useState(false);
   const [isCheckingIn, setIsCheckingIn] = useState(false);
   const [error, setError] = useState("");
+  const [errorCode, setErrorCode] = useState<BookingRequestError["code"] | null>(
+    null,
+  );
   const cancelButtonRef = useRef<HTMLButtonElement>(null);
   const keepBookingRef = useRef<HTMLButtonElement>(null);
   const actionHeadingRef = useRef<HTMLHeadingElement>(null);
+  const errorRef = useRef<HTMLParagraphElement>(null);
   const date = dateParts(booking.date);
 
   useEffect(() => {
     if (confirming) keepBookingRef.current?.focus();
   }, [confirming]);
+
+  useEffect(() => {
+    if (error) errorRef.current?.focus();
+  }, [error]);
 
   function keepBooking() {
     setConfirming(false);
@@ -234,15 +242,18 @@ export function StudentBookingDetail({ user, booking: initialBooking }: StudentB
     if (isCheckingIn) return;
     setIsCheckingIn(true);
     setError("");
+    setErrorCode(null);
     try {
       setBooking(await requestStudentCheckIn(booking.id));
       requestAnimationFrame(() => actionHeadingRef.current?.focus());
-      router.refresh();
     } catch (caught) {
       setError(
         caught instanceof BookingRequestError
           ? caught.message
           : "A check-in code could not be generated. Try again.",
+      );
+      setErrorCode(
+        caught instanceof BookingRequestError ? caught.code : "unexpected",
       );
     } finally {
       setIsCheckingIn(false);
@@ -253,16 +264,19 @@ export function StudentBookingDetail({ user, booking: initialBooking }: StudentB
     if (isCancelling) return;
     setIsCancelling(true);
     setError("");
+    setErrorCode(null);
     try {
       setBooking(await cancelStudentBooking(booking.id));
       setConfirming(false);
       requestAnimationFrame(() => actionHeadingRef.current?.focus());
-      router.refresh();
     } catch (caught) {
       setError(
         caught instanceof BookingRequestError
           ? caught.message
           : "This booking could not be cancelled. Try again.",
+      );
+      setErrorCode(
+        caught instanceof BookingRequestError ? caught.code : "unexpected",
       );
     } finally {
       setIsCancelling(false);
@@ -312,7 +326,16 @@ export function StudentBookingDetail({ user, booking: initialBooking }: StudentB
           <aside className={styles.actionPanel} aria-labelledby="action-title">
             <ShieldCheckIcon />
             <h2 ref={actionHeadingRef} tabIndex={-1} id="action-title">
-              {booking.status === "pending"
+              {booking.hasEnded &&
+              (booking.status === "pending" ||
+                booking.status === "confirmed" ||
+                booking.status === "checked_in")
+                ? booking.status === "pending"
+                  ? "Approval window ended"
+                  : booking.status === "confirmed"
+                    ? "Booking time ended"
+                    : "Booking time ended while checked in"
+                : booking.status === "pending"
                 ? "Waiting for staff approval"
                 : booking.status === "confirmed"
                   ? booking.checkInCode
@@ -331,7 +354,16 @@ export function StudentBookingDetail({ user, booking: initialBooking }: StudentB
                           : "This booking was cancelled"}
             </h2>
             <p>
-              {booking.status === "pending"
+              {booking.hasEnded &&
+              (booking.status === "pending" ||
+                booking.status === "confirmed" ||
+                booking.status === "checked_in")
+                ? booking.status === "pending"
+                  ? "The scheduled time ended before this request received a final review."
+                  : booking.status === "confirmed"
+                    ? "The scheduled time has ended. Campus staff can record a no-show if the resource was not used."
+                    : "The scheduled time has ended, but checkout has not yet been recorded. Contact campus staff to complete the visit."
+                : booking.status === "pending"
                 ? "The interval is protected while staff review the request."
                 : booking.status === "confirmed"
                   ? booking.checkInCode
@@ -349,7 +381,9 @@ export function StudentBookingDetail({ user, booking: initialBooking }: StudentB
                           ? booking.rejectionReason ?? "Staff could not approve this request."
                           : `Cancelled ${booking.cancelledAt ? new Intl.DateTimeFormat("en-GB", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Ho_Chi_Minh" }).format(new Date(booking.cancelledAt)) : ""}. The interval is available for others again.`}
             </p>
-            {booking.status === "confirmed" && booking.checkInCode && (
+            {booking.status === "confirmed" &&
+              !booking.hasEnded &&
+              booking.checkInCode && (
               <div className={styles.checkInCode} role="status" aria-label={`Check-in code ${booking.checkInCode}`}>
                 <span>Check-in code</span>
                 <strong>{booking.checkInCode}</strong>
@@ -374,7 +408,29 @@ export function StudentBookingDetail({ user, booking: initialBooking }: StudentB
                 </div>
               </div>
             )}
-            {error && <p className={styles.actionError} role="alert">{error}</p>}
+            {error && (
+              <div className={styles.actionRecovery}>
+                <p
+                  ref={errorRef}
+                  className={styles.actionError}
+                  role="alert"
+                  tabIndex={-1}
+                >
+                  {error}
+                </p>
+                {errorCode === "session" ? (
+                  <Link
+                    href={`/login?next=${encodeURIComponent(`/bookings/${booking.id}`)}`}
+                  >
+                    Sign in again
+                  </Link>
+                ) : errorCode === "conflict" || errorCode === "not-found" ? (
+                  <button type="button" onClick={() => router.refresh()}>
+                    Refresh booking details
+                  </button>
+                ) : null}
+              </div>
+            )}
             <Link href={`/resources/${booking.resource.id}`}>View resource details <ArrowRightIcon /></Link>
           </aside>
         </div>

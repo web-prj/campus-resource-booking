@@ -18,13 +18,18 @@ export class StaffBookingActionError extends Error {
   }
 }
 
-function mapError(error: unknown): StaffBookingActionError {
+function mapError(
+  error: unknown,
+  context: "review" | "lifecycle",
+): StaffBookingActionError {
   if (error instanceof StaffBookingActionError) return error;
   if (error instanceof ApiError) {
     if (error.kind === "network") {
       return new StaffBookingActionError(
         "network",
-        "The approval service is unreachable. Check your connection and try again.",
+        context === "review"
+          ? "The approval service is unreachable. Check your connection and try again."
+          : "The campus operations service is unreachable. Check your connection and try again.",
       );
     }
     const code: StaffBookingActionErrorCode =
@@ -39,21 +44,40 @@ function mapError(error: unknown): StaffBookingActionError {
               : error.status === 409
                 ? "conflict"
                 : "unexpected";
-    const messages: Record<StaffBookingActionErrorCode, string> = {
-      validation: "Enter a clear rejection reason between 3 and 500 characters.",
-      session: "Your session has ended. Sign in again before reviewing requests.",
-      forbidden: "Only staff accounts can review booking requests.",
-      "not-found": "This booking request no longer exists.",
-      conflict: "This request has already been reviewed. Refresh its details.",
-      network:
-        "The approval service is unreachable. Check your connection and try again.",
-      unexpected: "This review could not be saved. Try again.",
-    };
+    const messages: Record<StaffBookingActionErrorCode, string> =
+      context === "review"
+        ? {
+            validation:
+              "Enter a clear rejection reason between 3 and 500 characters.",
+            session:
+              "Your session has ended. Sign in again before reviewing requests.",
+            forbidden: "Only staff accounts can review booking requests.",
+            "not-found": "This booking request no longer exists.",
+            conflict:
+              "This request is no longer eligible for review. Refresh its details.",
+            network:
+              "The approval service is unreachable. Check your connection and try again.",
+            unexpected: "This review could not be saved. Try again.",
+          }
+        : {
+            validation: "Enter the six-digit code shown by the student.",
+            session:
+              "Your session has ended. Sign in again before updating this visit.",
+            forbidden: "Only staff accounts can update campus visits.",
+            "not-found": "This booking no longer exists.",
+            conflict:
+              "This visit is no longer eligible for that update. Refresh its details.",
+            network:
+              "The campus operations service is unreachable. Check your connection and try again.",
+            unexpected: "This visit update could not be saved. Try again.",
+          };
     return new StaffBookingActionError(code, messages[code]);
   }
   return new StaffBookingActionError(
     "unexpected",
-    "This review could not be saved. Try again.",
+    context === "review"
+      ? "This review could not be saved. Try again."
+      : "This visit update could not be saved. Try again.",
   );
 }
 
@@ -83,7 +107,7 @@ async function reviewBooking(
     }
     return booking;
   } catch (error) {
-    throw mapError(error);
+    throw mapError(error, "review");
   }
 }
 
@@ -135,7 +159,7 @@ async function lifecycleBooking(
     }
     return booking;
   } catch (error) {
-    throw mapError(error);
+    throw mapError(error, "lifecycle");
   }
 }
 

@@ -16,6 +16,8 @@ export interface ResourceAvailability {
   resourceId: string;
   date: string;
   timeZone: "Asia/Ho_Chi_Minh";
+  status: ResourceStatus;
+  operatingDays: number[];
   opensAt: string;
   closesAt: string;
   blockedReason: AvailabilityBlockedReason | null;

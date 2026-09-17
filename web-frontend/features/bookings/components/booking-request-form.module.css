@@ -105,6 +105,7 @@
 
 .request > button:focus-visible,
 .sessionLink:focus-visible,
+.result:focus,
 .error:focus {
   outline: 3px solid rgba(42, 60, 149, 0.2);
   outline-offset: 2px;

@@ -51,12 +51,24 @@ import { BookingStatus } from '../enums/booking-status.enum';
   `("status" = 'rejected' AND "rejection_reason" IS NOT NULL AND "reviewed_at" IS NOT NULL) OR ("status" <> 'rejected' AND "rejection_reason" IS NULL)`,
 )
 @Check(
+  'CHK_bookings_rejection_reason_content',
+  `"status" <> 'rejected' OR char_length(btrim("rejection_reason")) BETWEEN 3 AND 500`,
+)
+@Check(
   'CHK_bookings_check_in_request',
-  `("check_in_code" IS NULL AND "check_in_requested_at" IS NULL) OR ("check_in_code" ~ '^[0-9]{6}$' AND "check_in_requested_at" IS NOT NULL)`,
+  `("check_in_requested_at" IS NULL AND "check_in_code" IS NULL) OR ("check_in_requested_at" IS NOT NULL AND (("status" = 'confirmed' AND "check_in_code" ~ '^[0-9]{6}$') OR ("status" IN ('checked_in', 'completed', 'no_show') AND "check_in_code" IS NULL)))`,
+)
+@Check(
+  'CHK_bookings_check_in_timeline',
+  `("check_in_requested_at" IS NULL OR ("check_in_requested_at" >= (("booking_date" + "start_time") AT TIME ZONE 'Asia/Ho_Chi_Minh') - INTERVAL '15 minutes' AND "check_in_requested_at" < ("booking_date" + "end_time") AT TIME ZONE 'Asia/Ho_Chi_Minh')) AND ("checked_in_at" IS NULL OR ("check_in_requested_at" IS NOT NULL AND "checked_in_at" >= "check_in_requested_at" AND "checked_in_at" >= (("booking_date" + "start_time") AT TIME ZONE 'Asia/Ho_Chi_Minh') - INTERVAL '15 minutes' AND "checked_in_at" < ("booking_date" + "end_time") AT TIME ZONE 'Asia/Ho_Chi_Minh')) AND ("checked_out_at" IS NULL OR "checked_out_at" >= "checked_in_at")`,
+)
+@Check(
+  'CHK_bookings_no_show_timeline',
+  `"no_show_at" IS NULL OR "no_show_at" >= ("booking_date" + "end_time") AT TIME ZONE 'Asia/Ho_Chi_Minh'`,
 )
 @Check(
   'CHK_bookings_checked_in_state',
-  `("status" IN ('checked_in', 'completed') AND "check_in_code" IS NOT NULL AND "checked_in_at" IS NOT NULL AND "checked_in_by_id" IS NOT NULL) OR ("status" NOT IN ('checked_in', 'completed') AND "checked_in_at" IS NULL AND "checked_in_by_id" IS NULL)`,
+  `("status" IN ('checked_in', 'completed') AND "check_in_requested_at" IS NOT NULL AND "checked_in_at" IS NOT NULL AND "checked_in_by_id" IS NOT NULL) OR ("status" NOT IN ('checked_in', 'completed') AND "checked_in_at" IS NULL AND "checked_in_by_id" IS NULL)`,
 )
 @Check(
   'CHK_bookings_checkout_state',

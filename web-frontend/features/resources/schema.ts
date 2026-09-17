@@ -190,6 +190,8 @@ export function parseResourceAvailability(
     resourceId,
     date,
     timeZone,
+    status,
+    operatingDays,
     opensAt,
     closesAt,
     blockedReason,
@@ -210,6 +212,15 @@ export function parseResourceAvailability(
     !isUuid(resourceId) ||
     !isCalendarDate(date) ||
     timeZone !== "Asia/Ho_Chi_Minh" ||
+    typeof status !== "string" ||
+    !RESOURCE_STATUSES.has(status as ResourceStatus) ||
+    !Array.isArray(operatingDays) ||
+    operatingDays.length < 1 ||
+    operatingDays.length > 7 ||
+    !operatingDays.every(
+      (day) => Number.isInteger(day) && day >= 0 && day <= 6,
+    ) ||
+    new Set(operatingDays).size !== operatingDays.length ||
     typeof opensAt !== "string" ||
     !HOUR_PATTERN.test(opensAt) ||
     typeof closesAt !== "string" ||
@@ -228,9 +239,18 @@ export function parseResourceAvailability(
   }
 
   const validSlots = parsedSlots as AvailabilitySlot[];
+  const parsedStatus = status as ResourceStatus;
+  const statusReasonIsConsistent =
+    (parsedStatus === "active" &&
+      parsedBlockedReason !== "maintenance" &&
+      parsedBlockedReason !== "inactive") ||
+    (parsedStatus === "maintenance" &&
+      parsedBlockedReason === "maintenance") ||
+    (parsedStatus === "inactive" && parsedBlockedReason === "inactive");
   const opensAtMinutes = timeInMinutes(opensAt);
   const closesAtMinutes = timeInMinutes(closesAt);
   if (
+    !statusReasonIsConsistent ||
     (parsedBlockedReason !== null && validSlots.length > 0) ||
     validSlots.some((slot, index) => {
       const start = timeInMinutes(slot.startTime);
@@ -251,6 +271,8 @@ export function parseResourceAvailability(
     resourceId,
     date,
     timeZone,
+    status: parsedStatus,
+    operatingDays,
     opensAt,
     closesAt,
     blockedReason: parsedBlockedReason,
@@ -301,19 +323,16 @@ export function parseResourcePage(value: unknown): ResourcePage | null {
     !Number.isInteger(totalPages) ||
     (totalPages as number) < 0 ||
     (totalPages as number) !==
-      Math.ceil((total as number) / (pageSize as number)) ||
-    ((totalPages as number) > 0 && (page as number) > (totalPages as number))
+      Math.ceil((total as number) / (pageSize as number))
   ) {
     return null;
   }
 
+  const pageOffset = ((page as number) - 1) * (pageSize as number);
   const expectedItems =
-    (total as number) === 0
+    pageOffset >= (total as number)
       ? 0
-      : Math.min(
-          pageSize as number,
-          (total as number) - ((page as number) - 1) * (pageSize as number),
-        );
+      : Math.min(pageSize as number, (total as number) - pageOffset);
   if (parsedItems.length !== expectedItems) return null;
 
   return {

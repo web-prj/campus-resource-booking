@@ -112,10 +112,15 @@ describe('ResourcesService', () => {
       },
     };
     resourcesRepository.manager.getRepository.mockImplementation(
-      (entity: unknown) =>
-        entity === ResourceClosure
-          ? (closuresRepository as unknown as Repository<ResourceClosure>)
-          : (resourcesRepository as unknown as Repository<Resource>),
+      (entity: unknown) => {
+        if (entity === ResourceClosure) {
+          return closuresRepository as unknown as Repository<ResourceClosure>;
+        }
+        if (entity === Booking) {
+          return bookingsRepository as unknown as Repository<Booking>;
+        }
+        return resourcesRepository as unknown as Repository<Resource>;
+      },
     );
     resourcesRepository.manager.transaction.mockImplementation(
       async (
@@ -278,6 +283,50 @@ describe('ResourcesService', () => {
       ).rejects.toThrow();
     },
   );
+
+  it('loads availability inputs from one repeatable-read snapshot', async () => {
+    const closure = {
+      resourceId: resource.id,
+      date: '2026-09-15',
+    } as ResourceClosure;
+    const bookings = [{ id: 'booking-1' }] as Booking[];
+    closuresRepository.findOneBy.mockResolvedValue(closure);
+    bookingsRepository.find.mockResolvedValue(bookings);
+
+    await expect(
+      service.findAvailabilitySnapshot(resource.id, '2026-09-15'),
+    ).resolves.toEqual({ resource, closure, bookings });
+
+    expect(resourcesRepository.manager.transaction).toHaveBeenCalledWith(
+      'REPEATABLE READ',
+      expect.any(Function),
+    );
+    expect(resourcesRepository.findOne).toHaveBeenCalledWith({
+      where: { id: resource.id },
+    });
+    expect(closuresRepository.findOneBy).toHaveBeenCalledWith({
+      resourceId: resource.id,
+      date: '2026-09-15',
+    });
+    expect(bookingsRepository.find).toHaveBeenCalledWith({
+      where: [
+        { resourceId: resource.id, date: '2026-09-15', status: 'pending' },
+        { resourceId: resource.id, date: '2026-09-15', status: 'confirmed' },
+        { resourceId: resource.id, date: '2026-09-15', status: 'checked_in' },
+      ],
+      order: { startTime: 'ASC' },
+    });
+  });
+
+  it('returns no availability snapshot for an unknown resource', async () => {
+    resourcesRepository.findOne.mockResolvedValue(null);
+
+    await expect(
+      service.findAvailabilitySnapshot(resource.id, '2026-09-15'),
+    ).resolves.toBeNull();
+    expect(closuresRepository.findOneBy).not.toHaveBeenCalled();
+    expect(bookingsRepository.find).not.toHaveBeenCalled();
+  });
 
   it('finds resource details only when they are active', async () => {
     await service.findDiscoverableById(resource.id);

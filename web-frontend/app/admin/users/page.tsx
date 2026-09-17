@@ -16,6 +16,16 @@ function first(value: string | string[] | undefined): string | undefined {
   return Array.isArray(value) ? value[0] : value;
 }
 
+function usersHref(filters: AdminUserFilters, page: number): string {
+  const params = new URLSearchParams();
+  if (filters.q) params.set("q", filters.q);
+  if (filters.role) params.set("role", filters.role);
+  if (filters.status) params.set("status", filters.status);
+  if (page > 1) params.set("page", String(page));
+  const query = params.toString();
+  return `/admin/users${query ? `?${query}` : ""}`;
+}
+
 export default async function AdminUsersPage({
   searchParams,
 }: {
@@ -44,5 +54,15 @@ export default async function AdminUsersPage({
   };
 
   const directory = await getAdminUsers(filters);
-  return <AdminUserManager currentUser={user} directory={directory} filters={filters} />;
+  const lastPage = Math.max(1, directory.totalPages);
+  if (directory.page > lastPage) {
+    redirect(usersHref(filters, lastPage));
+  }
+  return (
+    <AdminUserManager
+      currentUser={user}
+      directory={directory}
+      filters={filters}
+    />
+  );
 }

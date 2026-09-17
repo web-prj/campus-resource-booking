@@ -85,6 +85,10 @@ describe("BookingRequestForm", () => {
       createdAt: "2026-09-15T00:00:00.000Z",
     });
     expect(await screen.findByText("Booking confirmed.")).toBeVisible();
+    expect(screen.getByText("Confirmed")).toBeVisible();
+    await waitFor(() =>
+      expect(screen.getByText("Booking confirmed.").parentElement).toHaveFocus(),
+    );
     expect(refresh).not.toHaveBeenCalled();
   });
 
@@ -110,10 +114,39 @@ describe("BookingRequestForm", () => {
 
       expect(await screen.findByText(message)).toBeVisible();
       expect(
+        screen.getByText(status === "pending" ? "Staff approval" : "Confirmed"),
+      ).toBeVisible();
+      await waitFor(() =>
+        expect(screen.getByText(message).parentElement).toHaveFocus(),
+      );
+      expect(
         screen.queryByRole("button", { name: "Send booking request" }),
       ).not.toBeInTheDocument();
     },
   );
+
+  it("replaces a stale approval preview with the authoritative result", async () => {
+    mockedCreate.mockResolvedValue({
+      id: "40000000-0000-4000-8000-000000000001",
+      requesterId: student.id,
+      ...input,
+      timeZone: "Asia/Ho_Chi_Minh",
+      status: "pending",
+      createdAt: "2026-09-15T00:00:00.000Z",
+    });
+    renderForm(student, false);
+    expect(screen.getByText("Immediate confirmation")).toBeVisible();
+
+    await userEvent.click(
+      screen.getByRole("button", { name: "Send booking request" }),
+    );
+
+    expect(
+      await screen.findByText("Request sent — pending staff approval."),
+    ).toBeVisible();
+    expect(screen.getByText("Staff approval")).toBeVisible();
+    expect(screen.queryByText("Immediate confirmation")).not.toBeInTheDocument();
+  });
 
   it("offers safe sign-in recovery when the session expires", async () => {
     mockedCreate.mockRejectedValue(

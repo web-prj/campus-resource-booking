@@ -414,7 +414,7 @@ The default Compose configuration is intended for local HTTP development. For pr
 - Enable secure cookies.
 - Use exact frontend and API origins.
 - Protect PostgreSQL from public exposure or remove its host port mapping.
-- Back up the database volume.
+- Back up PostgreSQL and complete a restore drill before introducing production data.
 - Use deployment-specific secret management instead of committing `.env`.
 
 At minimum:
@@ -434,6 +434,63 @@ docker compose up -d
 ```
 
 Cross-site session cookies are intentionally unsupported until unsafe requests have dedicated CSRF protection. Deploy the frontend and API on the same site.
+
+### PostgreSQL backup and restore drill
+
+Prefer a logical PostgreSQL archive over copying a live Docker volume. Logical archives are portable, can be inspected with `pg_restore --list`, and do not depend on the volume driver. Load the deployment environment, create an off-host backup, and verify it is non-empty:
+
+```bash
+set -a; . ./.env; set +a
+mkdir -p backups
+backup="backups/campus-resource-booking-$(date -u +%Y%m%dT%H%M%SZ).dump"
+
+docker compose exec -T postgres \
+  pg_dump \
+    --username "${DB_USERNAME:-postgres}" \
+    --dbname "${DB_NAME:-web_backend}" \
+    --format custom \
+    --no-owner \
+    --no-privileges > "$backup"
+
+test -s "$backup"
+docker compose exec -T postgres pg_restore --list < "$backup" | head
+```
+
+Move the archive to encrypted storage outside the Docker host and apply the deployment's retention policy. A backup is not accepted until it restores successfully. Test into a separate temporary database so the live database is never overwritten:
+
+```bash
+restore_db="${DB_NAME:-web_backend}_restore_test"
+
+docker compose exec -T postgres \
+  dropdb --if-exists --username "${DB_USERNAME:-postgres}" "$restore_db"
+docker compose exec -T postgres \
+  createdb --username "${DB_USERNAME:-postgres}" "$restore_db"
+docker compose exec -T postgres \
+  pg_restore \
+    --username "${DB_USERNAME:-postgres}" \
+    --dbname "$restore_db" \
+    --no-owner \
+    --no-privileges < "$backup"
+docker compose exec -T postgres \
+  psql --username "${DB_USERNAME:-postgres}" --dbname "$restore_db" \
+    --command 'SELECT count(*) AS applied_migrations FROM migrations;'
+
+# Remove only the temporary restore target after verification.
+docker compose exec -T postgres \
+  dropdb --username "${DB_USERNAME:-postgres}" "$restore_db"
+```
+
+For an actual recovery, stop application writes, restore into a new database, verify migrations and critical row counts, point the backend at the restored database, and run the release smoke before reopening traffic. Do not restore over the only production copy, run `migration:revert`, or delete the original volume as part of recovery.
+
+## Release readiness
+
+The complete MVP quality gate, migration review, demo-data procedure, role smoke matrix, cleanup checks, and rollback guidance are in [`docs/MVP_RELEASE.md`](docs/MVP_RELEASE.md).
+
+Quick read-only smoke after the stack is healthy:
+
+```bash
+./scripts/release-smoke.sh
+```
 
 ## Run applications locally without Docker
 

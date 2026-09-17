@@ -28,6 +28,7 @@ export interface StudentBooking {
   status: BookingStatus;
   canCancel: boolean;
   canRequestCheckIn: boolean;
+  hasEnded: boolean;
   checkInCode: string | null;
   checkInRequestedAt: string | null;
   checkedInAt: string | null;
@@ -76,6 +77,7 @@ export interface StaffBooking {
   createdAt: string;
   reviewedAt: string | null;
   rejectionReason: string | null;
+  canReview: boolean;
   checkInRequested: boolean;
   canConfirmCheckIn: boolean;
   canCheckOut: boolean;
@@ -93,7 +95,9 @@ export interface StaffBookingQueue {
   total: number;
 }
 
-export type StaffOperationsQueue = StaffBookingQueue;
+export interface StaffOperationsQueue extends StaffBookingQueue {
+  campusDate: string;
+}
 
 export interface StaffResourceSchedule {
   resourceId: string;
