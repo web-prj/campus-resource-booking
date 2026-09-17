@@ -60,8 +60,9 @@ describe("RegisterForm", () => {
 
     await userEvent.click(screen.getByRole("button", { name: "Create student account" }));
 
-    expect(await screen.findByRole("alert")).toHaveFocus();
-    expect(screen.getByRole("alert")).toHaveTextContent("account could not be created");
+    const alert = await screen.findByRole("alert");
+    await waitFor(() => expect(alert).toHaveFocus());
+    expect(alert).toHaveTextContent("account could not be created");
   });
 
   it("rejects mismatched passwords", async () => {

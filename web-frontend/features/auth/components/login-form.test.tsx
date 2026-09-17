@@ -38,8 +38,9 @@ describe("LoginForm", () => {
     await userEvent.type(screen.getByLabelText("Password"), "password123");
     await userEvent.click(screen.getByRole("button", { name: "Sign in securely" }));
 
-    expect(await screen.findByRole("alert")).toHaveFocus();
-    expect(screen.getByRole("alert")).toHaveTextContent("Sign-in could not be completed");
+    const alert = await screen.findByRole("alert");
+    await waitFor(() => expect(alert).toHaveFocus());
+    expect(alert).toHaveTextContent("Sign-in could not be completed");
   });
 
   it("disables duplicate submission while login is pending", async () => {

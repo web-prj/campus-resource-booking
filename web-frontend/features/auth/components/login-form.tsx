@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useRef, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   ArrowRightIcon,
@@ -32,6 +32,10 @@ export function LoginForm({ redirectTo = "/dashboard" }: LoginFormProps) {
   const [errors, setErrors] = useState<FormErrors>({});
   const [formError, setFormError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (formError) formErrorRef.current?.focus();
+  }, [formError]);
 
   function validate(): FormErrors {
     const nextErrors: FormErrors = {};
@@ -73,7 +77,6 @@ export function LoginForm({ redirectTo = "/dashboard" }: LoginFormProps) {
           ? error.message
           : "Sign-in could not be completed. Try again in a moment.",
       );
-      requestAnimationFrame(() => formErrorRef.current?.focus());
     } finally {
       setIsSubmitting(false);
     }
