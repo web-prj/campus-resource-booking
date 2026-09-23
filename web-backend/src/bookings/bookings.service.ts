@@ -20,19 +20,22 @@ import { CreateBookingDto } from './dto/create-booking.dto';
 import { Booking } from './entities/booking.entity';
 import { BookingStatus } from './enums/booking-status.enum';
 import { BookingDomainError } from './errors/booking-domain.error';
+import { AvailabilityEventsService } from '../events/availability-events.service';
 
 @Injectable()
 export class BookingsService {
   constructor(
     @InjectDataSource() private readonly dataSource: DataSource,
     @Inject(CAMPUS_CLOCK) private readonly clock: CampusClock,
+    private readonly availabilityEvents: AvailabilityEventsService,
   ) {}
 
   async create(requesterId: string, dto: CreateBookingDto): Promise<Booking> {
     this.requireValidRequest(dto);
 
+    let booking: Booking;
     try {
-      return await this.dataSource.transaction(async (manager) => {
+      booking = await this.dataSource.transaction(async (manager) => {
         const resource = await manager
           .getRepository(Resource)
           .createQueryBuilder('resource')
@@ -60,7 +63,7 @@ export class BookingsService {
           );
         }
 
-        const booking = manager.getRepository(Booking).create({
+        const newBooking = manager.getRepository(Booking).create({
           resourceId: resource.id,
           requesterId,
           date: dto.date,
@@ -70,7 +73,7 @@ export class BookingsService {
             ? BookingStatus.PENDING
             : BookingStatus.CONFIRMED,
         });
-        return manager.getRepository(Booking).save(booking);
+        return manager.getRepository(Booking).save(newBooking);
       });
     } catch (error: unknown) {
       if (error instanceof QueryFailedError) {
@@ -90,6 +93,12 @@ export class BookingsService {
       }
       throw error;
     }
+
+    this.availabilityEvents.notifyAvailabilityChanged(
+      booking.resourceId,
+      booking.date,
+    );
+    return booking;
   }
 
   async findForStudent(requesterId: string): Promise<{
@@ -193,7 +202,17 @@ export class BookingsService {
   }
 
   async approve(reviewerId: string, bookingId: string): Promise<Booking> {
-    return this.review(reviewerId, bookingId, BookingStatus.CONFIRMED, null);
+    const booking = await this.review(
+      reviewerId,
+      bookingId,
+      BookingStatus.CONFIRMED,
+      null,
+    );
+    this.availabilityEvents.notifyAvailabilityChanged(
+      booking.resourceId,
+      booking.date,
+    );
+    return booking;
   }
 
   async reject(
@@ -201,7 +220,17 @@ export class BookingsService {
     bookingId: string,
     reason: string,
   ): Promise<Booking> {
-    return this.review(reviewerId, bookingId, BookingStatus.REJECTED, reason);
+    const booking = await this.review(
+      reviewerId,
+      bookingId,
+      BookingStatus.REJECTED,
+      reason,
+    );
+    this.availabilityEvents.notifyAvailabilityChanged(
+      booking.resourceId,
+      booking.date,
+    );
+    return booking;
   }
 
   async requestCheckIn(
@@ -278,37 +307,42 @@ export class BookingsService {
   }
 
   async checkOut(staffId: string, bookingId: string): Promise<Booking> {
-    return this.dataSource.transaction(async (manager) => {
-      const booking = await this.lockBooking(manager, bookingId);
-      if (!booking) {
+    const booking = await this.dataSource.transaction(async (manager) => {
+      const lockedBooking = await this.lockBooking(manager, bookingId);
+      if (!lockedBooking) {
         throw new BookingDomainError('BOOKING_NOT_FOUND', 'Booking not found');
       }
-      if (booking.status !== BookingStatus.CHECKED_IN) {
+      if (lockedBooking.status !== BookingStatus.CHECKED_IN) {
         throw new BookingDomainError(
           'BOOKING_NOT_CHECKED_IN',
           'Only checked-in bookings can be checked out',
         );
       }
 
-      await manager.getRepository(Booking).update(booking.id, {
+      await manager.getRepository(Booking).update(lockedBooking.id, {
         status: BookingStatus.COMPLETED,
         checkedOutAt: this.clock(),
         checkedOutById: staffId,
       });
-      return this.reloadStaffBooking(manager, booking.id);
+      return this.reloadStaffBooking(manager, lockedBooking.id);
     });
+    this.availabilityEvents.notifyAvailabilityChanged(
+      booking.resourceId,
+      booking.date,
+    );
+    return booking;
   }
 
   async markNoShow(staffId: string, bookingId: string): Promise<Booking> {
-    return this.dataSource.transaction(async (manager) => {
-      const booking = await this.lockBooking(manager, bookingId);
-      if (!booking) {
+    const booking = await this.dataSource.transaction(async (manager) => {
+      const lockedBooking = await this.lockBooking(manager, bookingId);
+      if (!lockedBooking) {
         throw new BookingDomainError('BOOKING_NOT_FOUND', 'Booking not found');
       }
       const now = this.clock();
       if (
-        booking.status !== BookingStatus.CONFIRMED ||
-        now.getTime() < this.bookingEndMs(booking)
+        lockedBooking.status !== BookingStatus.CONFIRMED ||
+        now.getTime() < this.bookingEndMs(lockedBooking)
       ) {
         throw new BookingDomainError(
           'NO_SHOW_NOT_AVAILABLE',
@@ -316,43 +350,53 @@ export class BookingsService {
         );
       }
 
-      await manager.getRepository(Booking).update(booking.id, {
+      await manager.getRepository(Booking).update(lockedBooking.id, {
         status: BookingStatus.NO_SHOW,
         checkInCode: null,
         noShowAt: now,
         noShowById: staffId,
       });
-      return this.reloadStaffBooking(manager, booking.id);
+      return this.reloadStaffBooking(manager, lockedBooking.id);
     });
+    this.availabilityEvents.notifyAvailabilityChanged(
+      booking.resourceId,
+      booking.date,
+    );
+    return booking;
   }
 
   async cancel(requesterId: string, bookingId: string): Promise<Booking> {
-    return this.dataSource.transaction(async (manager) => {
-      const booking = await this.lockStudentBooking(
+    const booking = await this.dataSource.transaction(async (manager) => {
+      const lockedBooking = await this.lockStudentBooking(
         manager,
         requesterId,
         bookingId,
       );
-      if (!booking) {
+      if (!lockedBooking) {
         throw new BookingDomainError('BOOKING_NOT_FOUND', 'Booking not found');
       }
       const now = this.clock();
-      if (!this.canCancel(booking, now)) {
+      if (!this.canCancel(lockedBooking, now)) {
         throw new BookingDomainError(
           'BOOKING_NOT_CANCELLABLE',
           'Only future pending or confirmed bookings can be cancelled',
         );
       }
 
-      await manager.getRepository(Booking).update(booking.id, {
+      await manager.getRepository(Booking).update(lockedBooking.id, {
         status: BookingStatus.CANCELLED,
         cancelledAt: now,
       });
       return (await manager.getRepository(Booking).findOne({
-        where: { id: booking.id },
+        where: { id: lockedBooking.id },
         relations: { resource: { building: true } },
       })) as Booking;
     });
+    this.availabilityEvents.notifyAvailabilityChanged(
+      booking.resourceId,
+      booking.date,
+    );
+    return booking;
   }
 
   canCancel(booking: Booking, now: Date = this.clock()): boolean {

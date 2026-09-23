@@ -6,6 +6,7 @@ import {
   getResourceDetail,
 } from "@/features/resources/api/server";
 import { ResourceDetail } from "@/features/resources/components/resource-detail";
+import { AvailabilityLiveRegion } from "@/features/resources/components/availability-live-region";
 
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -79,7 +80,7 @@ export default async function ResourceDetailPage({
         index === 0 || selectedSlots[index - 1].endTime === slot.startTime,
     );
   const selectedSlot =
-    selectedRangeIsAvailable && selectedStart && selectedEnd
+    selectedStart && selectedEnd && selectedStart < selectedEnd
       ? { startTime: selectedStart, endTime: selectedEnd }
       : selectedEnd
         ? undefined
@@ -92,6 +93,8 @@ export default async function ResourceDetailPage({
       availability={availability}
       checkedDate={checkedDate}
       selectedSlot={selectedSlot}
+      isSlotAvailable={selectedRangeIsAvailable}
+      liveRegion={<AvailabilityLiveRegion key={checkedDate} resourceId={id} date={checkedDate} />}
     />
   );
 }

@@ -6,12 +6,14 @@ import { useRouter } from "next/navigation";
 import type { User } from "@/features/auth/types";
 import { createBookingRequest, BookingRequestError } from "../api/browser";
 import type { BookingRequestInput, BookingRequestResult } from "../types";
+
 import styles from "./booking-request-form.module.css";
 
 interface BookingRequestFormProps {
   user: User;
   resourceName: string;
   requiresApproval: boolean;
+  isSlotAvailable?: boolean;
   input: BookingRequestInput;
 }
 
@@ -29,6 +31,7 @@ export function BookingRequestForm({
   user,
   resourceName,
   requiresApproval,
+  isSlotAvailable = true,
   input,
 }: BookingRequestFormProps) {
   const router = useRouter();
@@ -146,6 +149,10 @@ export function BookingRequestForm({
         <Link className={styles.sessionLink} href={signInHref}>
           Sign in again
         </Link>
+      ) : !isSlotAvailable ? (
+        <p className={styles.refreshNotice} role="status">
+          This time slot was just booked and is no longer available.
+        </p>
       ) : (
         <button type="button" disabled={isSubmitting} onClick={() => void submit()}>
           {isSubmitting ? "Sending request…" : "Send booking request"}

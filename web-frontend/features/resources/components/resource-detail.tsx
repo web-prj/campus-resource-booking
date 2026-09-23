@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import Link from "next/link";
 import { BookingRequestForm } from "@/features/bookings/components/booking-request-form";
 import { BrandMark } from "@/components/brand-mark";
@@ -61,6 +62,8 @@ interface ResourceDetailProps {
   availability?: ResourceAvailability | null;
   checkedDate?: string;
   selectedSlot?: AvailabilitySlot;
+  isSlotAvailable?: boolean;
+  liveRegion?: ReactNode;
 }
 
 export function ResourceDetail({
@@ -69,6 +72,8 @@ export function ResourceDetail({
   availability = null,
   checkedDate,
   selectedSlot,
+  isSlotAvailable = true,
+  liveRegion,
 }: ResourceDetailProps) {
   const scheduleDaysValue = availability?.operatingDays ?? resource.operatingDays;
   const scheduleOpensAt = availability?.opensAt ?? resource.opensAt;
@@ -166,6 +171,8 @@ export function ResourceDetail({
             <button type="submit">Check date</button>
           </form>
 
+          {liveRegion}
+
           {!availability ? (
             <div className={styles.availabilityPrompt}>
               <strong>Select a date to see hourly slots.</strong>
@@ -236,6 +243,7 @@ export function ResourceDetail({
                     user={user}
                     resourceName={resource.name}
                     requiresApproval={requiresApproval}
+                    isSlotAvailable={isSlotAvailable}
                     input={{
                       resourceId: resource.id,
                       date: availability.date,

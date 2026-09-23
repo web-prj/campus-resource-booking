@@ -6,7 +6,9 @@ import {
   Param,
   ParseUUIDPipe,
   Query,
+  UseInterceptors,
 } from '@nestjs/common';
+import { CacheInterceptor } from '@nestjs/cache-manager';
 import {
   ApiBadRequestResponse,
   ApiCookieAuth,
@@ -56,6 +58,7 @@ export class ResourcesController {
   }
 
   @Get('buildings')
+  @UseInterceptors(CacheInterceptor)
   @ApiOperation({ summary: 'List buildings available for discovery filters' })
   @ApiOkResponse({ type: BuildingResponseDto, isArray: true })
   async findBuildings(): Promise<BuildingResponseDto[]> {
