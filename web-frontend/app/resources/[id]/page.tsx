@@ -81,7 +81,9 @@ export default async function ResourceDetailPage({
     );
   const selectedSlot =
     selectedStart && selectedEnd && selectedStart < selectedEnd
-      ? { startTime: selectedStart, endTime: selectedEnd }
+      ? selectedRangeIsAvailable
+        ? { startTime: selectedStart, endTime: selectedEnd }
+        : undefined
       : selectedEnd
         ? undefined
         : availability?.slots.find((slot) => slot.startTime === selectedStart);
