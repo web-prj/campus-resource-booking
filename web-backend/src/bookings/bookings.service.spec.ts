@@ -62,9 +62,15 @@ function createHarness(overrides: Partial<Resource> = {}) {
         operation(manager),
     ),
   };
+  const availabilityEvents = {
+    notifyAvailabilityChanged: jest.fn(),
+    notifyResourceChanged: jest.fn(),
+  };
+
   const service = new BookingsService(
     dataSource as never,
     () => new Date('2026-09-15T00:00:00.000Z'),
+    availabilityEvents as never,
   );
 
   return {

@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/features/auth/api/server";
 import { getStudentBookings } from "@/features/bookings/api/server";
 import { StudentDashboard } from "@/features/dashboard/components/student-dashboard";
+import { DashboardLiveRegion } from "@/features/dashboard/components/dashboard-live-region";
 import {
   getResourceAvailability,
   getResourceDirectory,
@@ -55,6 +56,7 @@ export default async function DashboardPage() {
       resources={dashboardResources}
       totalResources={directory.page.total}
       campusDate={date}
+      liveRegion={<DashboardLiveRegion key={date} campusDate={date} />}
     />
   );
 }

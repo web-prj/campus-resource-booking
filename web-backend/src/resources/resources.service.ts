@@ -21,6 +21,7 @@ import { ResourceClosure } from './entities/resource-closure.entity';
 import { Resource } from './entities/resource.entity';
 import { ResourceStatus } from './enums/resource-status.enum';
 import { ResourceCodeAlreadyExistsError } from './errors/resource-code-already-exists.error';
+import { AvailabilityEventsService } from '../events/availability-events.service';
 
 @Injectable()
 export class ResourcesService {
@@ -34,6 +35,7 @@ export class ResourcesService {
     @InjectRepository(Booking)
     private readonly bookingsRepository: Repository<Booking>,
     @Inject(CAMPUS_CLOCK) private readonly clock: CampusClock,
+    private readonly availabilityEvents: AvailabilityEventsService,
   ) {}
 
   findAll(): Promise<Resource[]> {
@@ -207,7 +209,7 @@ export class ResourcesService {
     }
 
     try {
-      return await this.resourcesRepository.manager.transaction(
+      const updated = await this.resourcesRepository.manager.transaction(
         async (manager) => {
           const locked = await this.lockResource(manager, resource.id);
           this.requireValidOperatingHours(
@@ -225,6 +227,8 @@ export class ResourcesService {
           })) as Resource;
         },
       );
+      this.availabilityEvents.notifyResourceChanged(updated.id);
+      return updated;
     } catch (error: unknown) {
       this.rethrowPersistenceError(error);
     }
@@ -234,14 +238,18 @@ export class ResourcesService {
     resource: Resource,
     status: ResourceStatus,
   ): Promise<Resource> {
-    return this.resourcesRepository.manager.transaction(async (manager) => {
-      const locked = await this.lockResource(manager, resource.id);
-      await manager.getRepository(Resource).update(locked.id, { status });
-      return (await manager.getRepository(Resource).findOne({
-        where: { id: locked.id },
-        relations: { building: true },
-      })) as Resource;
-    });
+    const updated = await this.resourcesRepository.manager.transaction(
+      async (manager) => {
+        const locked = await this.lockResource(manager, resource.id);
+        await manager.getRepository(Resource).update(locked.id, { status });
+        return (await manager.getRepository(Resource).findOne({
+          where: { id: locked.id },
+          relations: { building: true },
+        })) as Resource;
+      },
+    );
+    this.availabilityEvents.notifyResourceChanged(updated.id);
+    return updated;
   }
 
   async findAvailabilitySnapshot(
@@ -299,13 +307,15 @@ export class ResourcesService {
   ): Promise<ResourceClosure> {
     this.requireValidDate(dto.date);
     try {
-      return await this.resourcesRepository.manager.transaction(
+      const closure = await this.resourcesRepository.manager.transaction(
         async (manager) => {
           await this.lockResource(manager, resourceId);
           const repository = manager.getRepository(ResourceClosure);
           return repository.save(repository.create({ resourceId, ...dto }));
         },
       );
+      this.availabilityEvents.notifyAvailabilityChanged(resourceId, dto.date);
+      return closure;
     } catch (error: unknown) {
       if (error instanceof QueryFailedError) {
         const driverError = error.driverError as {
@@ -324,14 +334,27 @@ export class ResourcesService {
   }
 
   async deleteClosure(resourceId: string, closureId: string): Promise<boolean> {
-    return this.resourcesRepository.manager.transaction(async (manager) => {
-      await this.lockResource(manager, resourceId);
-      const result = await manager.getRepository(ResourceClosure).delete({
-        id: closureId,
-        resourceId,
-      });
-      return (result.affected ?? 0) > 0;
+    const closure = await this.closuresRepository.findOneBy({
+      id: closureId,
+      resourceId,
     });
+    const deleted = await this.resourcesRepository.manager.transaction(
+      async (manager) => {
+        await this.lockResource(manager, resourceId);
+        const result = await manager.getRepository(ResourceClosure).delete({
+          id: closureId,
+          resourceId,
+        });
+        return (result.affected ?? 0) > 0;
+      },
+    );
+    if (deleted && closure) {
+      this.availabilityEvents.notifyAvailabilityChanged(
+        resourceId,
+        closure.date,
+      );
+    }
+    return deleted;
   }
 
   private async lockResource(

@@ -145,12 +145,17 @@ describe('ResourcesService', () => {
       save: jest.fn(async (value: ResourceClosure) => value),
     };
     bookingsRepository = { find: jest.fn().mockResolvedValue([]) };
+    const availabilityEvents = {
+      notifyAvailabilityChanged: jest.fn(),
+      notifyResourceChanged: jest.fn(),
+    };
     service = new ResourcesService(
       resourcesRepository as unknown as Repository<Resource>,
       buildingsRepository as unknown as Repository<Building>,
       closuresRepository as unknown as Repository<ResourceClosure>,
       bookingsRepository as unknown as Repository<Booking>,
       () => new Date('2026-09-14T00:00:00.000Z'),
+      availabilityEvents as never,
     );
   });
 
@@ -209,12 +214,17 @@ describe('ResourcesService', () => {
   });
 
   it('returns no resources for an elapsed campus interval', async () => {
+    const availabilityEvents = {
+      notifyAvailabilityChanged: jest.fn(),
+      notifyResourceChanged: jest.fn(),
+    };
     const elapsedService = new ResourcesService(
       resourcesRepository as unknown as Repository<Resource>,
       buildingsRepository as unknown as Repository<Building>,
       closuresRepository as unknown as Repository<ResourceClosure>,
       bookingsRepository as unknown as Repository<Booking>,
       () => new Date('2026-09-15T03:00:00.000Z'),
+      availabilityEvents as never,
     );
 
     await expect(

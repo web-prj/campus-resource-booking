@@ -8,10 +8,12 @@ import { Building } from './entities/building.entity';
 import { ResourceClosure } from './entities/resource-closure.entity';
 import { Resource } from './entities/resource.entity';
 import { ResourcesService } from './resources.service';
+import { EventsModule } from '../events/events.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Building, Resource, ResourceClosure, Booking]),
+    EventsModule,
   ],
   controllers: [AdminResourcesController, ResourcesController],
   providers: [

@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import Link from "next/link";
 import { BrandMark } from "@/components/brand-mark";
 import {
@@ -116,6 +117,7 @@ interface StudentDashboardProps {
   resources: DashboardResource[];
   totalResources: number;
   campusDate: string;
+  liveRegion?: ReactNode;
 }
 
 export function StudentDashboard({
@@ -124,6 +126,7 @@ export function StudentDashboard({
   resources,
   totalResources,
   campusDate,
+  liveRegion,
 }: StudentDashboardProps) {
   const initials = getInitials(user.fullName);
   const nextBooking = timeline.upcoming[0];
@@ -230,6 +233,8 @@ export function StudentDashboard({
                 {resources.length} shown · {totalResources} active resources
               </span>
             </div>
+            
+            {liveRegion}
 
             {resources.length ? (
               <div
