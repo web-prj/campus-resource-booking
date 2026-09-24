@@ -16,7 +16,12 @@ import {
   updateResource,
   updateResourceStatus,
 } from "../api/browser";
-import type { Building, Resource } from "../types";
+import type {
+  Building,
+  Resource,
+  ResourceBookingConflict,
+  ResourcePage,
+} from "../types";
 import { AdminResourceManager } from "./admin-resource-manager";
 
 vi.mock("next/navigation", () => ({
@@ -33,6 +38,7 @@ vi.mock("../api/browser", () => ({
     constructor(
       public readonly code: string,
       message: string,
+      public readonly conflict: unknown = null,
     ) {
       super(message);
     }
@@ -80,14 +86,52 @@ const user = {
   createdAt: "2026-01-01T00:00:00.000Z",
 };
 
-function renderManager(resources: Resource[] = [resource]) {
+function renderManager(
+  resources: Resource[] = [resource],
+  overrides: Partial<ResourcePage> = {},
+) {
+  const total = overrides.total ?? resources.length;
   return render(
     <AdminResourceManager
       user={user}
-      resources={resources}
+      page={{
+        items: resources,
+        total,
+        page: 1,
+        pageSize: 20,
+        totalPages: Math.ceil(total / 20),
+        ...overrides,
+      }}
       buildings={[building]}
     />,
   );
+}
+
+function activeBookingConflict(
+  overrides: Partial<ResourceBookingConflict> = {},
+): ResourceBookingConflict {
+  return {
+    code: "RESOURCE_HAS_ACTIVE_BOOKINGS",
+    message: "This resource has active bookings that would be affected.",
+    conflictCount: 12,
+    conflictingBookings: [
+      {
+        id: "70000000-0000-4000-8000-000000000001",
+        date: "2099-01-05",
+        startTime: "09:00",
+        endTime: "11:00",
+        status: "confirmed",
+      },
+      {
+        id: "70000000-0000-4000-8000-000000000002",
+        date: "2099-01-06",
+        startTime: "13:00",
+        endTime: "14:00",
+        status: "pending",
+      },
+    ],
+    ...overrides,
+  };
 }
 
 function completeCreateForm() {
@@ -250,7 +294,10 @@ describe("AdminResourceManager", () => {
     renderManager();
 
     const row = screen.getByText("Study Room A101").closest("tr")!;
-    await userEvent.click(within(row).getByRole("button", { name: "Edit" }));
+    expect(
+      within(row).getByRole("button", { name: "Edit Study Room A101" }),
+    ).toBeInTheDocument();
+    await userEvent.click(within(row).getByRole("button", { name: /^Edit / }));
     await waitFor(() =>
       expect(screen.getByRole("complementary")).toHaveFocus(),
     );
@@ -274,7 +321,7 @@ describe("AdminResourceManager", () => {
     renderManager();
 
     const row = screen.getByText("Study Room A101").closest("tr")!;
-    await userEvent.click(within(row).getByRole("button", { name: "Edit" }));
+    await userEvent.click(within(row).getByRole("button", { name: /^Edit / }));
     await userEvent.clear(screen.getByLabelText("Description"));
     await userEvent.click(screen.getByRole("button", { name: "Save changes" }));
 
@@ -329,7 +376,7 @@ describe("AdminResourceManager", () => {
     renderManager();
 
     const row = screen.getByText("Study Room A101").closest("tr")!;
-    await userEvent.click(within(row).getByRole("button", { name: "Edit" }));
+    await userEvent.click(within(row).getByRole("button", { name: /^Edit / }));
     expect(await screen.findByText("Campus maintenance")).toBeVisible();
     expect(mockedGetClosures).toHaveBeenCalledWith(resource.id);
 
@@ -366,7 +413,7 @@ describe("AdminResourceManager", () => {
     );
     renderManager();
     const row = screen.getByText("Study Room A101").closest("tr")!;
-    await userEvent.click(within(row).getByRole("button", { name: "Edit" }));
+    await userEvent.click(within(row).getByRole("button", { name: /^Edit / }));
     fireEvent.change(screen.getByLabelText("Closure date"), {
       target: { value: "2026-09-19" },
     });
@@ -436,7 +483,7 @@ describe("AdminResourceManager", () => {
 
     expect(
       await screen.findByRole("link", { name: "Sign in again" }),
-    ).toHaveAttribute("href", "/login?next=/admin/resources");
+    ).toHaveAttribute("href", "/login?next=%2Fadmin%2Fresources");
     expect(status).toHaveFocus();
     expect(screen.getByText(/Your session has ended/)).toBeVisible();
   });
@@ -457,7 +504,7 @@ describe("AdminResourceManager", () => {
     expect(
       screen.getByRole("button", { name: "Create resource" }),
     ).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Edit" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /^Edit / })).toBeDisabled();
     expect(mockedStatus).toHaveBeenCalledWith(resource.id, "maintenance");
 
     resolveStatus({ ...resource, status: "maintenance" });
@@ -465,7 +512,9 @@ describe("AdminResourceManager", () => {
       expect(status).toBeEnabled();
       expect(status).toHaveFocus();
       expect(
-        screen.getByText("Study Room A101 is now maintenance."),
+        screen.getByText(
+          "Study Room A101 is under maintenance and cannot be booked.",
+        ),
       ).toBeVisible();
     });
   });
@@ -496,5 +545,171 @@ describe("AdminResourceManager", () => {
       name: "Collaboration Room",
     });
     await waitFor(() => expect(status).toBeEnabled());
+  });
+
+  it("labels page-level counts and uses the catalog total when paginated", () => {
+    renderManager([resource], { total: 45, page: 2, totalPages: 3 });
+
+    const summary = screen.getByLabelText("Admin dashboard summary");
+    expect(summary).toHaveTextContent("45Total resources");
+    expect(summary).toHaveTextContent("1Active on this page");
+    expect(summary).toHaveTextContent("Require approval on this page");
+
+    const nav = screen.getByRole("navigation", {
+      name: "Resource catalog pages",
+    });
+    expect(nav).toHaveTextContent("Page 2 of 3");
+    expect(within(nav).getByRole("link", { name: "Previous" })).toHaveAttribute(
+      "href",
+      "/admin/resources",
+    );
+    expect(within(nav).getByRole("link", { name: "Next" })).toHaveAttribute(
+      "href",
+      "/admin/resources?page=3",
+    );
+  });
+
+  it("marks the unavailable pagination direction as disabled", () => {
+    renderManager([resource], { total: 21, page: 2, totalPages: 2 });
+    const nav = screen.getByRole("navigation", {
+      name: "Resource catalog pages",
+    });
+    expect(within(nav).queryByRole("link", { name: "Next" })).not.toBeInTheDocument();
+    expect(within(nav).getByText("Next")).toHaveAttribute("aria-disabled", "true");
+  });
+
+  it("does not paginate a single-page catalog", () => {
+    renderManager();
+    expect(
+      screen.queryByRole("navigation", { name: "Resource catalog pages" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("links administrators to staff approvals from the admin navigation", () => {
+    renderManager();
+    const nav = screen.getByRole("navigation", {
+      name: "Administrator sections",
+    });
+    expect(within(nav).getByRole("link", { name: "Approvals" })).toHaveAttribute(
+      "href",
+      "/staff",
+    );
+    expect(within(nav).getByRole("link", { name: "Resources" })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+    expect(within(nav).getByRole("link", { name: "Approvals" })).not.toHaveAttribute(
+      "aria-current",
+    );
+  });
+
+  it("preserves the catalog page in session recovery", async () => {
+    mockedStatus.mockRejectedValue(
+      new ResourceMutationError("session", "Your session has ended."),
+    );
+    renderManager([resource], { total: 30, page: 2, totalPages: 2 });
+
+    fireEvent.change(screen.getByLabelText("Status for Study Room A101"), {
+      target: { value: "inactive" },
+    });
+
+    expect(
+      await screen.findByRole("link", { name: "Sign in again" }),
+    ).toHaveAttribute(
+      "href",
+      `/login?next=${encodeURIComponent("/admin/resources?page=2")}`,
+    );
+  });
+
+  it("lists active bookings that block a status change", async () => {
+    mockedStatus.mockRejectedValue(
+      new ResourceMutationError(
+        "active-bookings",
+        "This resource has active bookings that would be affected.",
+        activeBookingConflict(),
+      ),
+    );
+    renderManager();
+
+    fireEvent.change(screen.getByLabelText("Status for Study Room A101"), {
+      target: { value: "maintenance" },
+    });
+
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent(
+      "This resource has active bookings that would be affected.",
+    );
+    expect(alert).toHaveTextContent("12 active bookings");
+    expect(alert).toHaveTextContent("Resolve them in staff operations");
+    expect(alert).toHaveFocus();
+    const links = within(alert).getAllByRole("link");
+    expect(links).toHaveLength(2);
+    expect(links[0]).toHaveAttribute(
+      "href",
+      "/staff/bookings/70000000-0000-4000-8000-000000000001",
+    );
+    expect(links[0]).toHaveTextContent("09:00–11:00 ICT");
+    expect(links[0]).toHaveTextContent("Confirmed");
+    expect(links[1]).toHaveTextContent("Pending approval");
+    expect(alert).toHaveTextContent("and 10 more bookings are not listed.");
+    expect(screen.getByLabelText("Status for Study Room A101")).toHaveValue(
+      "active",
+    );
+  });
+
+  it("shows active-booking conflicts for closures without claiming more bookings", async () => {
+    mockedCreateClosure.mockRejectedValue(
+      new ResourceMutationError(
+        "active-bookings",
+        "Bookings exist on this date.",
+        activeBookingConflict({
+          message: "Bookings exist on this date.",
+          conflictCount: 1,
+          conflictingBookings: [
+            activeBookingConflict().conflictingBookings[0],
+          ],
+        }),
+      ),
+    );
+    renderManager();
+    await userEvent.click(screen.getByRole("button", { name: /^Edit / }));
+    await waitFor(() => expect(mockedGetClosures).toHaveBeenCalled());
+
+    fireEvent.change(screen.getByLabelText("Closure date"), {
+      target: { value: "2099-01-05" },
+    });
+    fireEvent.change(screen.getByLabelText("Reason"), {
+      target: { value: "Electrical work" },
+    });
+    await userEvent.click(screen.getByRole("button", { name: "Add closure" }));
+
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent("Bookings exist on this date.");
+    expect(alert).toHaveTextContent("1 active booking would be affected");
+    expect(alert).not.toHaveTextContent("more");
+    expect(within(alert).getByRole("link")).toHaveAttribute(
+      "href",
+      "/staff/bookings/70000000-0000-4000-8000-000000000001",
+    );
+  });
+
+  it("shows active-booking conflicts when edited operating hours are rejected", async () => {
+    mockedUpdate.mockRejectedValue(
+      new ResourceMutationError(
+        "active-bookings",
+        "Bookings fall outside the new hours.",
+        activeBookingConflict({ message: "Bookings fall outside the new hours." }),
+      ),
+    );
+    renderManager();
+    await userEvent.click(screen.getByRole("button", { name: /^Edit / }));
+    fireEvent.change(screen.getByLabelText("Closes at"), {
+      target: { value: "10:00" },
+    });
+    await userEvent.click(screen.getByRole("button", { name: "Save changes" }));
+
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent("Bookings fall outside the new hours.");
+    expect(within(alert).getAllByRole("link")).toHaveLength(2);
   });
 });

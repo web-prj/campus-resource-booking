@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { User } from "@/features/auth/types";
@@ -10,7 +10,12 @@ import {
   rejectStaffBooking,
   StaffBookingActionError,
 } from "../api/staff-browser";
-import type { StaffBooking, StaffResourceSchedule } from "../types";
+import type {
+  StaffBooking,
+  StaffBookingQueue,
+  StaffOperationsQueue,
+  StaffResourceSchedule,
+} from "../types";
 import { StaffApprovalQueue, StaffBookingDetail } from "./staff-bookings";
 
 const refresh = vi.fn();
@@ -77,6 +82,28 @@ const booking: StaffBooking = {
   },
   reviewer: null,
 };
+function queueOf(
+  items: StaffBooking[],
+  overrides: Partial<StaffBookingQueue> = {},
+): StaffBookingQueue {
+  const total = overrides.total ?? items.length;
+  return {
+    items,
+    total,
+    page: 1,
+    pageSize: 20,
+    totalPages: Math.ceil(total / 20),
+    ...overrides,
+  };
+}
+
+function operationsOf(
+  items: StaffBooking[],
+  overrides: Partial<StaffOperationsQueue> = {},
+): StaffOperationsQueue {
+  return { ...queueOf(items, overrides), campusDate: "2099-01-05", ...overrides };
+}
+
 const schedule: StaffResourceSchedule = {
   resourceId: booking.resource.id,
   date: booking.date,
@@ -94,7 +121,7 @@ describe("staff approval workflow", () => {
   });
 
   it("renders the oldest-first approval queue", () => {
-    render(<StaffApprovalQueue user={staff} queue={{ items: [booking], total: 1 }} operations={{ items: [], total: 0, campusDate: "2099-01-05" }} />);
+    render(<StaffApprovalQueue user={staff} queue={queueOf([booking])} operations={operationsOf([])} />);
     expect(screen.getByRole("heading", { name: "Pending approval queue" })).toBeVisible();
     expect(screen.getByText("Teaching Laboratory L201")).toBeVisible();
     expect(screen.getByText(/Campus Student/)).toBeVisible();
@@ -137,12 +164,8 @@ describe("staff approval workflow", () => {
     render(
       <StaffApprovalQueue
         user={staff}
-        queue={{ items: [booking], total: 1 }}
-        operations={{
-          items: [previousDate, codeReady, activeVisit, expiredCode],
-          total: 4,
-          campusDate: "2099-01-05",
-        }}
+        queue={queueOf([booking])}
+        operations={operationsOf([previousDate, codeReady, activeVisit, expiredCode])}
       />,
     );
 
@@ -153,6 +176,88 @@ describe("staff approval workflow", () => {
     expect(summary).toHaveTextContent("1Active visits");
     expect(screen.getAllByText("Ready for no-show review")).toHaveLength(2);
     expect(screen.getByText(/Overdue · 4 Jan · 09:00–11:00 ICT/)).toBeVisible();
+  });
+
+  it("paginates each queue independently and reports totals across all pages", () => {
+    const second = {
+      ...booking,
+      id: "40000000-0000-4000-8000-000000000010",
+      createdAt: "2026-09-15T02:00:00.000Z",
+    };
+    const visit = {
+      ...booking,
+      id: "40000000-0000-4000-8000-000000000011",
+      status: "confirmed" as const,
+      canReview: false,
+    };
+    render(
+      <StaffApprovalQueue
+        user={staff}
+        queue={queueOf([booking, second], { total: 42, page: 2, totalPages: 3 })}
+        operations={operationsOf([visit], { total: 21, page: 2, totalPages: 2 })}
+      />,
+    );
+
+    const summary = screen.getByLabelText("Staff dashboard summary");
+    expect(summary).toHaveTextContent("42Requests to review");
+    expect(summary).toHaveTextContent("21Open visits to manage");
+    expect(summary).toHaveTextContent("Codes ready on this page");
+    expect(summary).toHaveTextContent("Oldest request on this page");
+    expect(screen.getByLabelText("42 pending requests")).toBeVisible();
+    expect(screen.getByLabelText("Queue position 21")).toBeVisible();
+
+    const pending = screen.getByRole("navigation", {
+      name: "Pending approval queue pages",
+    });
+    expect(pending).toHaveTextContent("Page 2 of 3");
+    expect(within(pending).getByRole("link", { name: "Previous" })).toHaveAttribute(
+      "href",
+      "/staff?operationsPage=2",
+    );
+    expect(within(pending).getByRole("link", { name: "Next" })).toHaveAttribute(
+      "href",
+      "/staff?pendingPage=3&operationsPage=2",
+    );
+
+    const visits = screen.getByRole("navigation", {
+      name: "Operational worklist pages",
+    });
+    expect(visits).toHaveTextContent("Page 2 of 2");
+    expect(within(visits).getByRole("link", { name: "Previous" })).toHaveAttribute(
+      "href",
+      "/staff?pendingPage=2",
+    );
+    expect(within(visits).queryByRole("link", { name: "Next" })).not.toBeInTheDocument();
+    expect(within(visits).getByText("Next")).toHaveAttribute("aria-disabled", "true");
+  });
+
+  it("hides pagination when each queue fits on one page", () => {
+    render(<StaffApprovalQueue user={staff} queue={queueOf([booking])} operations={operationsOf([])} />);
+    expect(screen.queryByRole("navigation", { name: /pages$/ })).not.toBeInTheDocument();
+  });
+
+  it("shows administrator sections alongside staff tools for admins", () => {
+    const admin: User = { ...staff, role: "admin", fullName: "Campus Admin" };
+    render(<StaffApprovalQueue user={admin} queue={queueOf([booking])} operations={operationsOf([])} />);
+
+    const nav = screen.getByRole("navigation", { name: "Staff navigation" });
+    expect(within(nav).getByRole("link", { name: "Approval queue" })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+    expect(within(nav).getByRole("link", { name: "Resources" })).toHaveAttribute("href", "/admin/resources");
+    expect(within(nav).getByRole("link", { name: "Users" })).toHaveAttribute("href", "/admin/users");
+    expect(within(nav).getByRole("link", { name: "Analytics" })).toHaveAttribute("href", "/admin/analytics");
+    expect(within(nav).getByRole("link", { name: "Resources" })).not.toHaveAttribute("aria-current");
+    expect(screen.getByText("Administrator")).toBeVisible();
+  });
+
+  it("keeps staff navigation limited to staff tools", () => {
+    render(<StaffBookingDetail user={staff} booking={booking} schedule={schedule} />);
+    const nav = screen.getByRole("navigation", { name: "Staff navigation" });
+    expect(within(nav).queryByRole("link", { name: "Resources" })).not.toBeInTheDocument();
+    expect(within(nav).getByText("Request detail")).toHaveAttribute("aria-current", "page");
+    expect(within(nav).getByRole("link", { name: "Approval queue" })).not.toHaveAttribute("aria-current");
   });
 
   it("approves a request and focuses the recorded outcome", async () => {
@@ -184,8 +289,12 @@ describe("staff approval workflow", () => {
       />,
     );
 
-    expect(screen.getByRole("heading", { name: "Approval window ended" })).toBeVisible();
-    expect(screen.getByText("Request remains pending")).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Review window ended" })).toBeVisible();
+    expect(screen.getByText("Expired request · not reviewed in time")).toBeVisible();
+    expect(screen.getByText("Expired request")).toBeVisible();
+    expect(
+      screen.getByText(/review window has closed and it can no longer be reviewed/),
+    ).toBeVisible();
     expect(
       screen.getByText("No active bookings remain for this resource on this date."),
     ).toBeVisible();

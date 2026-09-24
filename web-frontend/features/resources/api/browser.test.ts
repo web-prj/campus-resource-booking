@@ -258,4 +258,98 @@ describe("admin resource browser API", () => {
       code: "unexpected",
     });
   });
+
+  describe("active booking conflicts", () => {
+    const conflictBody = {
+      code: "RESOURCE_HAS_ACTIVE_BOOKINGS",
+      message: "Resolve 3 active bookings before closing this resource.",
+      conflictCount: 3,
+      conflictingBookings: [
+        {
+          id: "70000000-0000-4000-8000-000000000001",
+          date: "2099-01-05",
+          startTime: "09:00",
+          endTime: "10:00",
+          status: "confirmed",
+        },
+        {
+          id: "70000000-0000-4000-8000-000000000002",
+          date: "2099-01-05",
+          startTime: "10:00",
+          endTime: "12:00",
+          status: "checked_in",
+        },
+      ],
+    };
+
+    it("parses the typed conflict for status changes", async () => {
+      const request = vi
+        .fn<typeof fetch>()
+        .mockResolvedValue(response(conflictBody, 409));
+      await expect(
+        updateResourceStatus(resource.id, "maintenance", request),
+      ).rejects.toMatchObject({
+        code: "active-bookings",
+        message: conflictBody.message,
+        conflict: conflictBody,
+      });
+    });
+
+    it("parses the typed conflict for closures and edits", async () => {
+      await expect(
+        createResourceClosure(
+          resource.id,
+          { date: "2099-01-05", reason: "Maintenance" },
+          vi.fn<typeof fetch>().mockResolvedValue(response(conflictBody, 409)),
+        ),
+      ).rejects.toMatchObject({ code: "active-bookings", conflict: conflictBody });
+
+      await expect(
+        updateResource(
+          resource.id,
+          input,
+          vi.fn<typeof fetch>().mockResolvedValue(response(conflictBody, 409)),
+        ),
+      ).rejects.toMatchObject({ code: "active-bookings", conflict: conflictBody });
+    });
+
+    it("keeps existing duplicate-code and duplicate-closure conflicts", async () => {
+      await expect(
+        createResource(
+          input,
+          vi
+            .fn<typeof fetch>()
+            .mockResolvedValue(response({ statusCode: 409, message: "Duplicate" }, 409)),
+        ),
+      ).rejects.toMatchObject({
+        code: "conflict",
+        message: "A resource with this code already exists.",
+        conflict: null,
+      });
+      await expect(
+        createResourceClosure(
+          resource.id,
+          { date: "2099-01-05", reason: "Maintenance" },
+          vi.fn<typeof fetch>().mockResolvedValue(response({ statusCode: 409 }, 409)),
+        ),
+      ).rejects.toMatchObject({
+        code: "conflict",
+        message: "A closure already exists for this resource and date.",
+      });
+    });
+
+    it("falls back to the generic conflict when the body is malformed", async () => {
+      const malformed = {
+        ...conflictBody,
+        conflictingBookings: [{ ...conflictBody.conflictingBookings[0], status: "completed" }],
+      };
+      await expect(
+        updateResourceStatus(
+          resource.id,
+          "inactive",
+          vi.fn<typeof fetch>().mockResolvedValue(response(malformed, 409)),
+        ),
+      ).rejects.toMatchObject({ code: "conflict", conflict: null });
+    });
+  });
 });

@@ -34,6 +34,7 @@ export function AdminAnalytics({ user, summary }: { user: User; summary: Analyti
           <Link href="/admin/resources">Resources</Link>
           <Link href="/admin/users">Users</Link>
           <Link href="/admin/analytics" aria-current="page">Analytics</Link>
+          <Link href="/staff">Approvals</Link>
         </nav>
         <div className={styles.identity}>
           <span><strong>{user.fullName}</strong><small>Administrator</small></span>

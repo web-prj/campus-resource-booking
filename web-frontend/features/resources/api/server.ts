@@ -2,12 +2,12 @@ import "server-only";
 
 import { cookies } from "next/headers";
 import { getServerApiEndpoint } from "@/lib/api/server-config";
+import { assertSessionActive } from "@/lib/api/session";
 import {
   parseBuildings,
   parseResource,
   parseResourceAvailability,
   parseResourcePage,
-  parseResources,
 } from "../schema";
 import { discoverySearchParams } from "../discovery-query";
 import type {
@@ -34,6 +34,7 @@ async function resourceRequest(
     throw new Error("The resource service is unavailable.");
   }
 
+  assertSessionActive(response);
   const body = await response.json().catch(() => null);
   if (!response.ok && response.status !== 404) {
     throw new Error(`Resource lookup failed with ${response.status}.`);
@@ -42,21 +43,33 @@ async function resourceRequest(
   return { status: response.status, body };
 }
 
+export const ADMIN_RESOURCE_PAGE_SIZE = 20;
+
 export async function getAdminResourceCatalog(
+  page = 1,
   request: typeof fetch = fetch,
-): Promise<{ resources: Resource[]; buildings: Building[] }> {
+): Promise<{ page: ResourcePage; buildings: Building[] }> {
+  const params = new URLSearchParams({
+    page: String(page),
+    pageSize: String(ADMIN_RESOURCE_PAGE_SIZE),
+  });
   const [resourceResponse, buildingResponse] = await Promise.all([
-    resourceRequest("/admin/resources", request),
+    resourceRequest(`/admin/resources?${params.toString()}`, request),
     resourceRequest("/admin/resources/buildings", request),
   ]);
-  const resources = parseResources(resourceResponse.body);
+  const resourcePage = parseResourcePage(resourceResponse.body, 50);
   const buildings = parseBuildings(buildingResponse.body);
 
-  if (!resources || !buildings) {
+  if (
+    !resourcePage ||
+    !buildings ||
+    resourcePage.page !== page ||
+    resourcePage.pageSize !== ADMIN_RESOURCE_PAGE_SIZE
+  ) {
     throw new Error("The resource service returned invalid catalog data.");
   }
 
-  return { resources, buildings };
+  return { page: resourcePage, buildings };
 }
 
 export async function getResourceDirectory(

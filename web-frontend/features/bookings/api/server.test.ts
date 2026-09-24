@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { cookies } from "next/headers";
 import { getStudentBooking, getStudentBookings } from "./server";
+import { SessionExpiredError } from "@/lib/api/session";
 
 vi.mock("server-only", () => ({}));
 vi.mock("next/headers", () => ({ cookies: vi.fn() }));
@@ -95,5 +96,10 @@ describe("student booking server API", () => {
         ),
       ),
     ).rejects.toThrow("invalid booking data");
+  });
+
+  it("signals an expired session instead of a generic failure", async () => {
+    const request = vi.fn<typeof fetch>().mockResolvedValue(response({}, 401));
+    await expect(getStudentBookings(request)).rejects.toBeInstanceOf(SessionExpiredError);
   });
 });

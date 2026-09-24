@@ -22,6 +22,10 @@ import {
 } from '@nestjs/swagger';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
+import {
+  PaginationQueryDto,
+  totalPagesFor,
+} from '../common/dto/pagination-query.dto';
 import { ResourceAvailabilityQueryDto } from '../resources/dto/resource-availability-query.dto';
 import { UserRole } from '../users/enums/user-role.enum';
 import { BookingsService } from './bookings.service';
@@ -38,38 +42,54 @@ import { BookingDomainError } from './errors/booking-domain.error';
 @ApiTags('staff bookings')
 @ApiCookieAuth()
 @ApiUnauthorizedResponse({ description: 'Authentication required' })
-@ApiForbiddenResponse({ description: 'Staff role required' })
-@Roles(UserRole.STAFF)
+@ApiForbiddenResponse({ description: 'Staff or administrator role required' })
+@Roles(UserRole.STAFF, UserRole.ADMIN)
 @Controller('staff/bookings')
 export class StaffBookingsController {
   constructor(private readonly bookingsService: BookingsService) {}
 
   @Get('operations')
-  @ApiOperation({ summary: 'List current and overdue operational bookings' })
+  @ApiOperation({
+    summary: 'List current and overdue operational bookings, paginated',
+  })
   @ApiOkResponse({ type: StaffOperationsQueueResponseDto })
-  async findOperations(): Promise<StaffOperationsQueueResponseDto> {
-    const { bookings, evaluatedAt, campusDate } =
-      await this.bookingsService.findOperationsForStaff();
+  @ApiBadRequestResponse({ description: 'Invalid page or pageSize' })
+  async findOperations(
+    @Query() { page, pageSize }: PaginationQueryDto,
+  ): Promise<StaffOperationsQueueResponseDto> {
+    const { bookings, total, evaluatedAt, campusDate } =
+      await this.bookingsService.findOperationsForStaff(page, pageSize);
     return {
       items: bookings.map((booking) =>
         this.staffResponse(booking, evaluatedAt),
       ),
-      total: bookings.length,
+      total,
+      page,
+      pageSize,
+      totalPages: totalPagesFor(total, pageSize),
       campusDate,
     };
   }
 
   @Get('pending')
-  @ApiOperation({ summary: 'List pending booking requests oldest first' })
+  @ApiOperation({
+    summary: 'List reviewable pending booking requests oldest first, paginated',
+  })
   @ApiOkResponse({ type: StaffBookingQueueResponseDto })
-  async findPending(): Promise<StaffBookingQueueResponseDto> {
-    const { bookings, evaluatedAt } =
-      await this.bookingsService.findPendingForStaff();
+  @ApiBadRequestResponse({ description: 'Invalid page or pageSize' })
+  async findPending(
+    @Query() { page, pageSize }: PaginationQueryDto,
+  ): Promise<StaffBookingQueueResponseDto> {
+    const { bookings, total, evaluatedAt } =
+      await this.bookingsService.findPendingForStaff(page, pageSize);
     return {
       items: bookings.map((booking) =>
         this.staffResponse(booking, evaluatedAt),
       ),
-      total: bookings.length,
+      total,
+      page,
+      pageSize,
+      totalPages: totalPagesFor(total, pageSize),
     };
   }
 

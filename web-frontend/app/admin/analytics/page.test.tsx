@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { SessionExpiredError } from "@/lib/api/session";
 import AdminAnalyticsPage from "./page";
 import { getCurrentUser } from "@/features/auth/api/server";
 import { getAdminAnalytics } from "@/features/analytics/api/server";
@@ -37,7 +38,7 @@ describe("AdminAnalyticsPage", () => {
 
   it("redirects an anonymous request to the safe analytics login destination", async () => {
     vi.mocked(getCurrentUser).mockResolvedValue(null);
-    await expect(AdminAnalyticsPage({ searchParams: Promise.resolve({}) })).rejects.toThrow("redirect:/login?next=/admin/analytics");
+    await expect(AdminAnalyticsPage({ searchParams: Promise.resolve({}) })).rejects.toThrow(`redirect:/login?next=${encodeURIComponent("/admin/analytics")}`);
     expect(getAdminAnalytics).not.toHaveBeenCalled();
   });
 
@@ -71,5 +72,17 @@ describe("AdminAnalyticsPage", () => {
       ).rejects.toThrow("redirect:/admin/analytics");
     }
     expect(getAdminAnalytics).not.toHaveBeenCalled();
+  });
+
+  it("returns an expired session to sign in with the requested range", async () => {
+    vi.mocked(getCurrentUser).mockResolvedValue(admin);
+    vi.mocked(getAdminAnalytics).mockRejectedValue(new SessionExpiredError());
+    await expect(
+      AdminAnalyticsPage({
+        searchParams: Promise.resolve({ from: "2026-09-01", to: "2026-09-10" }),
+      }),
+    ).rejects.toThrow(
+      `redirect:/login?next=${encodeURIComponent("/admin/analytics?from=2026-09-01&to=2026-09-10")}`,
+    );
   });
 });

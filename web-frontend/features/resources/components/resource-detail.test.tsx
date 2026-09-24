@@ -393,4 +393,76 @@ describe("ResourceDetail", () => {
       screen.getByText(/No additional amenities are listed/),
     ).toBeVisible();
   });
+
+  it("explains a selected interval that is no longer available", () => {
+    render(
+      <ResourceDetail
+        user={user}
+        resource={resource}
+        checkedDate="2099-01-05"
+        selectedSlot={{ startTime: "09:00", endTime: "11:00" }}
+        isSlotAvailable={false}
+        availability={{
+          resourceId: resource.id,
+          date: "2099-01-05",
+          timeZone: "Asia/Ho_Chi_Minh",
+          status: "active",
+          operatingDays: [1, 2, 3, 4, 5, 6],
+          opensAt: "08:00",
+          closesAt: "18:00",
+          blockedReason: null,
+          closureReason: null,
+          requiresApproval: true,
+          slots: [
+            { startTime: "09:00", endTime: "10:00" },
+            { startTime: "14:00", endTime: "15:00" },
+          ],
+        }}
+      />,
+    );
+
+    expect(screen.getByText("09:00–11:00 is no longer available.")).toBeVisible();
+    expect(screen.getByRole("link", { name: "Choose another slot" })).toHaveAttribute(
+      "href",
+      `/resources/${resource.id}?date=2099-01-05`,
+    );
+    expect(screen.queryByText(/selected\./)).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "09:00 to 10:00" }),
+    ).not.toHaveAttribute("aria-current");
+    expect(
+      screen.queryByRole("button", { name: "Send booking request" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("explains an unavailable selection even when no slots remain", () => {
+    render(
+      <ResourceDetail
+        user={user}
+        resource={resource}
+        checkedDate="2099-01-05"
+        selectedSlot={{ startTime: "09:00", endTime: "10:00" }}
+        isSlotAvailable={false}
+        availability={{
+          resourceId: resource.id,
+          date: "2099-01-05",
+          timeZone: "Asia/Ho_Chi_Minh",
+          status: "active",
+          operatingDays: [1, 2, 3, 4, 5, 6],
+          opensAt: "08:00",
+          closesAt: "18:00",
+          blockedReason: null,
+          closureReason: null,
+          requiresApproval: true,
+          slots: [],
+        }}
+      />,
+    );
+
+    expect(screen.getByText("No bookable hourly slots remain")).toBeVisible();
+    expect(screen.getByText("09:00–10:00 is no longer available.")).toBeVisible();
+    expect(
+      screen.queryByRole("button", { name: "Send booking request" }),
+    ).not.toBeInTheDocument();
+  });
 });

@@ -215,6 +215,7 @@ list.
 | `CORS_ORIGINS`          | `localhost:18321` | Comma-separated allowed origins          |
 | `THROTTLE_LIMIT`        | `100`            | Requests per window                      |
 | `AUTH_THROTTLE_LIMIT`   | `10`             | Tighter budget for login/register        |
+| `BOOTSTRAP_ADMIN_EMAIL` | unset            | Registered USTH account promoted to admin at startup when no active admin exists |
 
 ## Database migrations
 

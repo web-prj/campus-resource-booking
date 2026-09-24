@@ -4,6 +4,7 @@ import { getCurrentUser } from "@/features/auth/api/server";
 import { getAdminUsers } from "@/features/users/api/server";
 import { AdminUserManager } from "@/features/users/components/admin-user-manager";
 import type { AdminUserFilters } from "@/features/users/types";
+import { loginRedirectPath, withSessionRedirect } from "@/lib/api/session";
 
 export const metadata: Metadata = {
   title: "Manage users",
@@ -31,10 +32,6 @@ export default async function AdminUsersPage({
 }: {
   searchParams: SearchParams;
 }) {
-  const user = await getCurrentUser();
-  if (!user) redirect("/login?next=/admin/users");
-  if (user.role !== "admin") redirect("/dashboard");
-
   const params = await searchParams;
   const q = first(params.q)?.trim().slice(0, 120) || undefined;
   const roleValue = first(params.role);
@@ -53,7 +50,14 @@ export default async function AdminUsersPage({
     page: Number.isInteger(parsedPage) && parsedPage > 0 ? parsedPage : 1,
   };
 
-  const directory = await getAdminUsers(filters);
+  const user = await getCurrentUser();
+  if (!user) redirect(loginRedirectPath(usersHref(filters, filters.page ?? 1)));
+  if (user.role !== "admin") redirect("/dashboard");
+
+  const directory = await withSessionRedirect(
+    usersHref(filters, filters.page ?? 1),
+    () => getAdminUsers(filters),
+  );
   const lastPage = Math.max(1, directory.totalPages);
   if (directory.page > lastPage) {
     redirect(usersHref(filters, lastPage));

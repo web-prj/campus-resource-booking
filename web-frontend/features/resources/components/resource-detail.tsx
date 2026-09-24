@@ -85,6 +85,25 @@ export function ResourceDetail({
     operationalStatus === "active"
       ? "Listed in the student directory"
       : "Unavailable for operational use";
+  const requestForm =
+    availability && selectedSlot ? (
+      <BookingRequestForm
+        key={`${availability.date}:${selectedSlot.startTime}:${selectedSlot.endTime}`}
+        user={user}
+        resourceName={resource.name}
+        requiresApproval={requiresApproval}
+        isSlotAvailable={isSlotAvailable}
+        chooseAnotherHref={`/resources/${resource.id}?date=${encodeURIComponent(
+          availability.date,
+        )}`}
+        input={{
+          resourceId: resource.id,
+          date: availability.date,
+          startTime: selectedSlot.startTime,
+          endTime: selectedSlot.endTime,
+        }}
+      />
+    ) : null;
 
   return (
     <main className={styles.page}>
@@ -197,7 +216,9 @@ export function ResourceDetail({
                 by a pending, confirmed, or checked-in booking. Choose another date.
               </span>
             </div>
-          ) : (
+          ) : null}
+          {availability && availability.slots.length === 0 && requestForm}
+          {availability && !availability.blockedReason && availability.slots.length > 0 && (
             <div className={styles.slotArea}>
               <div className={styles.slotSummary} role="status">
                 <strong>
@@ -211,7 +232,8 @@ export function ResourceDetail({
               </div>
               <div className={styles.slotGrid} aria-label="Available time slots">
                 {availability.slots.map((slot) => {
-                  const selected = selectedSlot?.startTime === slot.startTime;
+                  const selected =
+                    isSlotAvailable && selectedSlot?.startTime === slot.startTime;
                   const href = `/resources/${resource.id}?date=${encodeURIComponent(
                     availability.date,
                   )}&startTime=${encodeURIComponent(
@@ -230,29 +252,15 @@ export function ResourceDetail({
                   );
                 })}
               </div>
-              {selectedSlot && (
-                <>
-                  <p className={styles.selectionNotice} role="status">
-                    <strong>
-                      {selectedSlot.startTime}–{selectedSlot.endTime} selected.
-                    </strong>{" "}
-                    This does not reserve or hold the resource.
-                  </p>
-                  <BookingRequestForm
-                    key={`${availability.date}:${selectedSlot.startTime}:${selectedSlot.endTime}`}
-                    user={user}
-                    resourceName={resource.name}
-                    requiresApproval={requiresApproval}
-                    isSlotAvailable={isSlotAvailable}
-                    input={{
-                      resourceId: resource.id,
-                      date: availability.date,
-                      startTime: selectedSlot.startTime,
-                      endTime: selectedSlot.endTime,
-                    }}
-                  />
-                </>
+              {selectedSlot && isSlotAvailable && (
+                <p className={styles.selectionNotice} role="status">
+                  <strong>
+                    {selectedSlot.startTime}–{selectedSlot.endTime} selected.
+                  </strong>{" "}
+                  This does not reserve or hold the resource.
+                </p>
               )}
+              {requestForm}
             </div>
           )}
 

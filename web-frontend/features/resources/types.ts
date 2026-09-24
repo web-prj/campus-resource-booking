@@ -68,6 +68,23 @@ export interface ResourcePage {
   totalPages: number;
 }
 
+export type ResourceConflictBookingStatus = "pending" | "confirmed" | "checked_in";
+
+export interface ResourceConflictBooking {
+  id: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  status: ResourceConflictBookingStatus;
+}
+
+export interface ResourceBookingConflict {
+  code: "RESOURCE_HAS_ACTIVE_BOOKINGS";
+  message: string;
+  conflictCount: number;
+  conflictingBookings: ResourceConflictBooking[];
+}
+
 export interface ResourceDiscoveryFilters {
   q?: string;
   buildingId?: string;

@@ -2,6 +2,7 @@ import "server-only";
 
 import { cookies } from "next/headers";
 import { getServerApiEndpoint } from "@/lib/api/server-config";
+import { assertSessionActive } from "@/lib/api/session";
 import { parseAnalyticsSummary } from "../schema";
 import type { AnalyticsRange, AnalyticsSummary } from "../types";
 
@@ -23,6 +24,7 @@ export async function getAdminAnalytics(
   } catch {
     throw new Error("The analytics service is unavailable.");
   }
+  assertSessionActive(response);
   if (!response.ok) throw new Error(`Analytics lookup failed with ${response.status}.`);
   const summary = parseAnalyticsSummary(await response.json().catch(() => null));
   if (!summary || summary.from !== range.from || summary.to !== range.to) {

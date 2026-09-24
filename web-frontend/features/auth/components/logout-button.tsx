@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { disconnectSocket } from "@/lib/realtime/socket";
 import { logout } from "../api/browser";
 
 interface LogoutButtonProps {
@@ -24,6 +25,7 @@ export function LogoutButton({
 
     try {
       await logout();
+      disconnectSocket();
       router.replace("/login");
       router.refresh();
     } catch {

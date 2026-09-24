@@ -3,6 +3,7 @@ import {
   parseBuildings,
   parseResource,
   parseResourceAvailability,
+  parseResourceBookingConflict,
   parseResourceClosure,
   parseResourcePage,
   parseResources,
@@ -214,6 +215,64 @@ describe("resource response schemas", () => {
     expect(parseResources([resource, { ...resource, id: null }])).toBeNull();
     expect(
       parseBuildings([building, { ...building, address: null }]),
+    ).toBeNull();
+  });
+});
+
+describe("resource booking conflict schema", () => {
+  const booking = {
+    id: "70000000-0000-4000-8000-000000000001",
+    date: "2099-01-05",
+    startTime: "09:00",
+    endTime: "10:30",
+    status: "pending",
+  };
+  const conflict = {
+    code: "RESOURCE_HAS_ACTIVE_BOOKINGS",
+    message: "Active bookings exist.",
+    conflictCount: 11,
+    conflictingBookings: [booking],
+  };
+
+  it("parses a valid active-booking conflict", () => {
+    expect(parseResourceBookingConflict(conflict)).toEqual(conflict);
+  });
+
+  it("rejects other or inconsistent conflict bodies", () => {
+    expect(parseResourceBookingConflict({ ...conflict, code: "DUPLICATE" })).toBeNull();
+    expect(parseResourceBookingConflict({ statusCode: 409, message: "Duplicate" })).toBeNull();
+    expect(parseResourceBookingConflict({ ...conflict, conflictCount: 0 })).toBeNull();
+    expect(
+      parseResourceBookingConflict({
+        ...conflict,
+        conflictCount: 1,
+        conflictingBookings: [booking, { ...booking, id: "70000000-0000-4000-8000-000000000002" }],
+      }),
+    ).toBeNull();
+    expect(
+      parseResourceBookingConflict({
+        ...conflict,
+        conflictCount: 20,
+        conflictingBookings: Array.from({ length: 11 }, (_, index) => ({
+          ...booking,
+          id: `70000000-0000-4000-8000-0000000000${String(index + 10)}`,
+        })),
+      }),
+    ).toBeNull();
+    expect(
+      parseResourceBookingConflict({
+        ...conflict,
+        conflictingBookings: [{ ...booking, endTime: "08:00" }],
+      }),
+    ).toBeNull();
+    expect(
+      parseResourceBookingConflict({
+        ...conflict,
+        conflictingBookings: [{ ...booking, status: "cancelled" }],
+      }),
+    ).toBeNull();
+    expect(
+      parseResourceBookingConflict({ ...conflict, conflictingBookings: [booking, booking] }),
     ).toBeNull();
   });
 });

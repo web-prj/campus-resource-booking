@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { BrandMark } from "@/components/brand-mark";
+import { PaginationNav } from "@/components/pagination-nav";
 import {
   ArrowRightIcon,
   EquipmentIcon,
@@ -36,14 +37,6 @@ function ResourceTypeIcon({ type }: { type: ResourceType }) {
   return <RoomIcon />;
 }
 
-function pageWindow(page: number, totalPages: number): number[] {
-  const start = Math.max(1, Math.min(page - 1, totalPages - 2));
-  const end = Math.min(totalPages, start + 2);
-  return Array.from({ length: Math.max(0, end - start + 1) }, (_, index) =>
-    Math.max(1, start + index),
-  );
-}
-
 function activeFilterCount(filters: ResourceDiscoveryFilters): number {
   return [
     filters.q,
@@ -69,7 +62,6 @@ export function ResourceDirectory({
   filters,
 }: ResourceDirectoryProps) {
   const appliedFilters = activeFilterCount(filters);
-  const pages = pageWindow(page.page, page.totalPages);
 
   return (
     <main className={styles.page}>
@@ -257,37 +249,15 @@ export function ResourceDirectory({
             </div>
           )}
 
-          {page.totalPages > 1 && (
-            <nav className={styles.pagination} aria-label="Resource pages">
-              {page.page > 1 ? (
-                <Link href={discoveryHref(filters, { page: page.page - 1 })}>
-                  Previous
-                </Link>
-              ) : (
-                <span aria-disabled="true">Previous</span>
-              )}
-
-              <div>
-                {pages.map((number) => (
-                  <Link
-                    href={discoveryHref(filters, { page: number })}
-                    aria-current={number === page.page ? "page" : undefined}
-                    key={number}
-                  >
-                    {number}
-                  </Link>
-                ))}
-              </div>
-
-              {page.page < page.totalPages ? (
-                <Link href={discoveryHref(filters, { page: page.page + 1 })}>
-                  Next
-                </Link>
-              ) : (
-                <span aria-disabled="true">Next</span>
-              )}
-            </nav>
-          )}
+          <PaginationNav
+            className={styles.pagination}
+            label="Resource pages"
+            page={page.page}
+            totalPages={page.totalPages}
+            hrefFor={(number) => discoveryHref(filters, { page: number })}
+            showPageLinks
+            showPosition={false}
+          />
         </section>
       </div>
     </main>

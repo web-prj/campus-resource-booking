@@ -6,6 +6,7 @@ import {
   getStaffResourceSchedule,
 } from "@/features/bookings/api/staff-server";
 import { StaffBookingDetail } from "@/features/bookings/components/staff-bookings";
+import { withSessionRedirect } from "@/lib/api/session";
 
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -27,13 +28,13 @@ export default async function StaffBookingDetailPage({
 
   const user = await getCurrentUser();
   if (!user) redirect(`/login?next=/staff/bookings/${id}`);
-  if (user.role !== "staff") redirect("/dashboard");
+  if (user.role !== "staff" && user.role !== "admin") redirect("/dashboard");
 
-  const booking = await getStaffBooking(id);
+  const returnTo = `/staff/bookings/${id}`;
+  const booking = await withSessionRedirect(returnTo, () => getStaffBooking(id));
   if (!booking) notFound();
-  const schedule = await getStaffResourceSchedule(
-    booking.resource.id,
-    booking.date,
+  const schedule = await withSessionRedirect(returnTo, () =>
+    getStaffResourceSchedule(booking.resource.id, booking.date),
   );
   return (
     <StaffBookingDetail

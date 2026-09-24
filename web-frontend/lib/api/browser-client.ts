@@ -7,6 +7,7 @@ export class ApiError extends Error {
     public readonly kind: ApiErrorKind,
     message: string,
     public readonly status?: number,
+    public readonly body?: unknown,
   ) {
     super(message);
     this.name = "ApiError";
@@ -36,7 +37,13 @@ export async function browserRequest(
   }
 
   if (!response.ok) {
-    throw new ApiError("http", `The API returned ${response.status}.`, response.status);
+    const body: unknown = await response.json().catch(() => undefined);
+    throw new ApiError(
+      "http",
+      `The API returned ${response.status}.`,
+      response.status,
+      body,
+    );
   }
 
   if (response.status === 204) {

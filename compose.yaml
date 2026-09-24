@@ -53,6 +53,9 @@ services:
       THROTTLE_TTL: ${THROTTLE_TTL:-60}
       THROTTLE_LIMIT: ${THROTTLE_LIMIT:-100}
       AUTH_THROTTLE_LIMIT: ${AUTH_THROTTLE_LIMIT:-10}
+      # Optional: promotes this registered USTH account to administrator at
+      # startup when no active administrator exists. Empty means unset.
+      BOOTSTRAP_ADMIN_EMAIL: ${BOOTSTRAP_ADMIN_EMAIL:-}
     ports:
       - "${BACKEND_PORT:-18320}:18320"
     healthcheck:

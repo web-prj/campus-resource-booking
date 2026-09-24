@@ -15,3 +15,15 @@ export function isFutureCampusTime(
   const timestamp = campusDateTimeMs(date, time);
   return Number.isFinite(timestamp) && timestamp > now.getTime();
 }
+
+const CAMPUS_OFFSET_MS = 7 * 60 * 60 * 1000;
+
+/** Campus-local calendar date (`YYYY-MM-DD`) for an instant. */
+export function campusDateOf(now: Date): string {
+  return new Date(now.getTime() + CAMPUS_OFFSET_MS).toISOString().slice(0, 10);
+}
+
+/** Campus-local wall-clock time (`HH:MM`, seconds truncated) for an instant. */
+export function campusTimeOf(now: Date): string {
+  return new Date(now.getTime() + CAMPUS_OFFSET_MS).toISOString().slice(11, 16);
+}

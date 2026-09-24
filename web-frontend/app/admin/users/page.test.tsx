@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { SessionExpiredError } from "@/lib/api/session";
 import { getCurrentUser } from "@/features/auth/api/server";
 import { getAdminUsers } from "@/features/users/api/server";
 import { redirect } from "next/navigation";
@@ -42,8 +43,20 @@ describe("AdminUsersPage", () => {
 
     await expect(
       AdminUsersPage({ searchParams: Promise.resolve({}) }),
-    ).rejects.toThrow("redirect:/login?next=/admin/users");
+    ).rejects.toThrow(`redirect:/login?next=${encodeURIComponent("/admin/users")}`);
     expect(getAdminUsers).not.toHaveBeenCalled();
+  });
+
+  it("keeps the requested filters in the login destination", async () => {
+    vi.mocked(getCurrentUser).mockResolvedValue(null);
+
+    await expect(
+      AdminUsersPage({
+        searchParams: Promise.resolve({ role: "staff", page: "2" }),
+      }),
+    ).rejects.toThrow(
+      `redirect:/login?next=${encodeURIComponent("/admin/users?role=staff&page=2")}`,
+    );
   });
 
   it("redirects non-admin accounts before loading account data", async () => {
@@ -98,6 +111,16 @@ describe("AdminUsersPage", () => {
       }),
     ).rejects.toThrow(
       "redirect:/admin/users?q=lab+user&role=student&status=inactive&page=2",
+    );
+  });
+
+  it("returns an expired session to sign in with the directory filters", async () => {
+    vi.mocked(getCurrentUser).mockResolvedValue(admin);
+    vi.mocked(getAdminUsers).mockRejectedValue(new SessionExpiredError());
+    await expect(
+      AdminUsersPage({ searchParams: Promise.resolve({ role: "staff", page: "2" }) }),
+    ).rejects.toThrow(
+      `redirect:/login?next=${encodeURIComponent("/admin/users?role=staff&page=2")}`,
     );
   });
 });

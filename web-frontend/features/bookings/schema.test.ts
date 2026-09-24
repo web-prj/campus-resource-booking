@@ -126,10 +126,10 @@ describe("staff booking schema", () => {
       createdAt: "2026-09-15T01:00:00.000Z",
     };
     expect(
-      parseStaffBookingQueue({ items: [staffBooking, staffBooking], total: 2 }),
+      parseStaffBookingQueue({ items: [staffBooking, staffBooking], total: 2, page: 1, pageSize: 20, totalPages: 1 }),
     ).toBeNull();
     expect(
-      parseStaffBookingQueue({ items: [later, staffBooking], total: 2 }),
+      parseStaffBookingQueue({ items: [later, staffBooking], total: 2, page: 1, pageSize: 20, totalPages: 1 }),
     ).toBeNull();
     expect(
       parseStaffResourceSchedule(
@@ -159,6 +159,9 @@ describe("staff booking schema", () => {
       parseStaffOperationsQueue({
         items: [currentDate, previousDate],
         total: 2,
+        page: 1,
+        pageSize: 20,
+        totalPages: 1,
         campusDate: "2099-01-05",
       }),
     ).toBeNull();
@@ -166,20 +169,49 @@ describe("staff booking schema", () => {
       parseStaffOperationsQueue({
         items: [previousDate, currentDate],
         total: 2,
+        page: 1,
+        pageSize: 20,
+        totalPages: 1,
         campusDate: "2099-01-05",
       }),
     ).toEqual({
       items: [previousDate, currentDate],
       total: 2,
+      page: 1,
+      pageSize: 20,
+      totalPages: 1,
       campusDate: "2099-01-05",
     });
     expect(
       parseStaffOperationsQueue({
         items: [{ ...currentDate, date: "2099-01-06" }],
         total: 1,
+        page: 1,
+        pageSize: 20,
+        totalPages: 1,
         campusDate: "2099-01-05",
       }),
     ).toBeNull();
+  });
+
+  it("validates queue page metadata against the items on the page", () => {
+    const page = { page: 2, pageSize: 20, totalPages: 2 };
+    expect(
+      parseStaffBookingQueue({ items: [staffBooking], total: 21, ...page }),
+    ).toEqual({ items: [staffBooking], total: 21, ...page });
+    expect(
+      parseStaffBookingQueue({ items: [], total: 21, page: 3, pageSize: 20, totalPages: 2 }),
+    ).toEqual({ items: [], total: 21, page: 3, pageSize: 20, totalPages: 2 });
+    expect(
+      parseStaffBookingQueue({ items: [staffBooking], total: 1, page: 1, pageSize: 20, totalPages: 3 }),
+    ).toBeNull();
+    expect(
+      parseStaffBookingQueue({ items: [staffBooking], total: 22, ...page }),
+    ).toBeNull();
+    expect(
+      parseStaffBookingQueue({ items: [staffBooking], total: 1, page: 1, pageSize: 51, totalPages: 1 }),
+    ).toBeNull();
+    expect(parseStaffBookingQueue({ items: [staffBooking], total: 1 })).toBeNull();
   });
 });
 

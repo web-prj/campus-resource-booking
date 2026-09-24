@@ -449,13 +449,48 @@ function isStaffBookingOrderStable(
   });
 }
 
+interface StaffQueuePage {
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+}
+
+function parseStaffQueuePage(
+  value: Record<string, unknown>,
+  itemCount: number,
+): StaffQueuePage | null {
+  const { total, page, pageSize, totalPages } = value;
+  if (
+    typeof total !== "number" ||
+    !Number.isInteger(total) ||
+    total < 0 ||
+    typeof page !== "number" ||
+    !Number.isInteger(page) ||
+    page < 1 ||
+    typeof pageSize !== "number" ||
+    !Number.isInteger(pageSize) ||
+    pageSize < 1 ||
+    pageSize > 50 ||
+    typeof totalPages !== "number" ||
+    totalPages !== Math.ceil(total / pageSize)
+  ) {
+    return null;
+  }
+  const offset = (page - 1) * pageSize;
+  const expectedItems = offset >= total ? 0 : Math.min(pageSize, total - offset);
+  if (itemCount !== expectedItems) return null;
+  return { total, page, pageSize, totalPages };
+}
+
 export function parseStaffBookingQueue(value: unknown): StaffBookingQueue | null {
-  if (!isRecord(value) || !Array.isArray(value.items) || typeof value.total !== "number") {
+  if (!isRecord(value) || !Array.isArray(value.items)) {
     return null;
   }
   const items = value.items.map(parseStaffBooking);
+  const pageInfo = parseStaffQueuePage(value, items.length);
   if (
-    value.total !== items.length ||
+    !pageInfo ||
     items.some(
       (booking) =>
         booking === null ||
@@ -467,7 +502,7 @@ export function parseStaffBookingQueue(value: unknown): StaffBookingQueue | null
   ) {
     return null;
   }
-  return { items: items as StaffBooking[], total: value.total };
+  return { items: items as StaffBooking[], ...pageInfo };
 }
 
 export function parseStaffOperationsQueue(
@@ -476,7 +511,6 @@ export function parseStaffOperationsQueue(
   if (
     !isRecord(value) ||
     !Array.isArray(value.items) ||
-    typeof value.total !== "number" ||
     !isCalendarDate(value.campusDate)
   ) {
     return null;
@@ -484,8 +518,9 @@ export function parseStaffOperationsQueue(
 
   const campusDate = value.campusDate;
   const items = value.items.map(parseStaffBooking);
+  const pageInfo = parseStaffQueuePage(value, items.length);
   if (
-    value.total !== items.length ||
+    !pageInfo ||
     items.some(
       (booking) =>
         booking === null ||
@@ -502,7 +537,7 @@ export function parseStaffOperationsQueue(
   }
   return {
     items: items as StaffBooking[],
-    total: value.total,
+    ...pageInfo,
     campusDate,
   };
 }

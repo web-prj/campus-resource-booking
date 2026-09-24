@@ -1,7 +1,12 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { getSocket } from "./socket";
+import type { Socket } from "socket.io-client";
+import {
+  getSocket,
+  isSocketClosedByServer,
+  SERVER_DISCONNECT_REASON,
+} from "./socket";
 
 interface AvailabilityChangedPayload {
   resourceId: string;
@@ -32,6 +37,7 @@ export function useAvailabilityUpdates(
     if (!date) return;
 
     const socket = getSocket();
+    if (isSocketClosedByServer()) return;
     const room = { resourceId, date };
 
     function handleAvailabilityChanged(payload: AvailabilityChangedPayload) {
@@ -55,20 +61,32 @@ export function useAvailabilityUpdates(
       onUpdateRef.current();
     }
 
+    function detach() {
+      socket.off("connect", handleReconnect);
+      socket.off("disconnect", handleDisconnect);
+      socket.off("availability:changed", handleAvailabilityChanged);
+      socket.off("resource:changed", handleResourceChanged);
+    }
+
+    // The server closed the socket on purpose (session expired or account
+    // deactivated). Stay disconnected instead of re-joining or refreshing.
+    function handleDisconnect(reason: Socket.DisconnectReason) {
+      if (reason === SERVER_DISCONNECT_REASON) detach();
+    }
+
     // Join the room
     if (socket.connected) {
       joinRoom();
     }
     // Re-join and refresh on reconnect
     socket.on("connect", handleReconnect);
+    socket.on("disconnect", handleDisconnect);
     socket.on("availability:changed", handleAvailabilityChanged);
     socket.on("resource:changed", handleResourceChanged);
 
     return () => {
-      socket.emit("leave:availability", room);
-      socket.off("connect", handleReconnect);
-      socket.off("availability:changed", handleAvailabilityChanged);
-      socket.off("resource:changed", handleResourceChanged);
+      if (socket.connected) socket.emit("leave:availability", room);
+      detach();
     };
   }, [resourceId, date]);
 }

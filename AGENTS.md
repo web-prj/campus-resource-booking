@@ -30,6 +30,7 @@ There is no root application package. Run npm commands from the relevant subproj
 - Do not create commits, push branches, or perform destructive Git operations unless explicitly requested.
 - Never commit secrets, real credentials, access tokens, cookies, or production data. Use `.env.example` and placeholders.
 - When adding a dependency, use npm in the owning subproject, pin the requested version, and update that subproject's lockfile.
+- Use sub-agents proactively when they improve efficiency, such as independent research, broad codebase searches, parallel frontend/backend work, or separate validation passes. Give each sub-agent a clear, self-contained task, and review its results before relying on them.
 
 ## Frontend conventions
 

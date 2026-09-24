@@ -4,6 +4,7 @@ import { getAdminAnalytics } from "@/features/analytics/api/server";
 import { AdminAnalytics } from "@/features/analytics/components/admin-analytics";
 import type { AnalyticsRange } from "@/features/analytics/types";
 import { getCurrentUser } from "@/features/auth/api/server";
+import { loginRedirectPath, withSessionRedirect } from "@/lib/api/session";
 
 export const metadata: Metadata = {
   title: "Booking analytics",
@@ -43,28 +44,30 @@ function validRange(from: string, to: string): boolean {
 }
 
 export default async function AdminAnalyticsPage({ searchParams }: { searchParams: SearchParams }) {
-  const user = await getCurrentUser();
-  if (!user) redirect("/login?next=/admin/analytics");
-  if (user.role !== "admin") redirect("/dashboard");
-
   const params = await searchParams;
-  const defaults = defaultRange();
   const hasRequestedRange = params.from !== undefined || params.to !== undefined;
-  let range = defaults;
-  if (hasRequestedRange) {
-    const fromValue = params.from;
-    const toValue = params.to;
-    if (
-      typeof fromValue !== "string" ||
-      typeof toValue !== "string" ||
-      !validDate(fromValue) ||
-      !validDate(toValue) ||
-      !validRange(fromValue, toValue)
-    ) {
-      redirect("/admin/analytics");
-    }
-    range = { from: fromValue, to: toValue };
-  }
-  const summary = await getAdminAnalytics(range);
+  const fromValue = params.from;
+  const toValue = params.to;
+  const requestedRange: AnalyticsRange | null =
+    typeof fromValue === "string" &&
+    typeof toValue === "string" &&
+    validDate(fromValue) &&
+    validDate(toValue) &&
+    validRange(fromValue, toValue)
+      ? { from: fromValue, to: toValue }
+      : null;
+  const returnTo = requestedRange
+    ? `/admin/analytics?${new URLSearchParams({ from: requestedRange.from, to: requestedRange.to }).toString()}`
+    : "/admin/analytics";
+
+  const user = await getCurrentUser();
+  if (!user) redirect(loginRedirectPath(returnTo));
+  if (user.role !== "admin") redirect("/dashboard");
+  if (hasRequestedRange && !requestedRange) redirect("/admin/analytics");
+
+  const range = requestedRange ?? defaultRange();
+  const summary = await withSessionRedirect(returnTo, () =>
+    getAdminAnalytics(range),
+  );
   return <AdminAnalytics user={user} summary={summary} />;
 }

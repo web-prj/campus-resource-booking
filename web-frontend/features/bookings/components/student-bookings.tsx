@@ -18,22 +18,13 @@ import {
 import { LogoutButton } from "@/features/auth/components/logout-button";
 import type { User } from "@/features/auth/types";
 import { BookingRequestError, cancelStudentBooking, requestStudentCheckIn } from "../api/browser";
-import type {
-  BookingStatus,
-  StudentBooking,
-  StudentBookingTimeline,
-} from "../types";
+import {
+  isExpiredRequest,
+  studentDisplayStatus,
+  studentStatusLabel,
+} from "../status";
+import type { StudentBooking, StudentBookingTimeline } from "../types";
 import styles from "./student-bookings.module.css";
-
-const statusLabels: Record<BookingStatus, string> = {
-  pending: "Pending approval",
-  confirmed: "Confirmed",
-  checked_in: "Checked in",
-  completed: "Completed",
-  no_show: "No-show",
-  rejected: "Rejected",
-  cancelled: "Cancelled",
-};
 
 function ResourceIcon({ type }: { type: StudentBooking["resource"]["type"] }) {
   if (type === "laboratory") return <LaboratoryIcon />;
@@ -65,7 +56,7 @@ function dateParts(date: string): { day: string; month: string; full: string } {
 function BookingRow({ booking }: { booking: StudentBooking }) {
   const date = dateParts(booking.date);
   return (
-    <article className={styles.bookingRow} data-status={booking.status}>
+    <article className={styles.bookingRow} data-status={studentDisplayStatus(booking)}>
       <time className={styles.dateBlock} dateTime={booking.date}>
         <strong>{date.day}</strong>
         <span>{date.month}</span>
@@ -74,10 +65,15 @@ function BookingRow({ booking }: { booking: StudentBooking }) {
         <ResourceIcon type={booking.resource.type} />
       </span>
       <div className={styles.bookingIdentity}>
-        <span className={styles.status} data-status={booking.status}>
-          {statusLabels[booking.status]}
+        <span className={styles.status} data-status={studentDisplayStatus(booking)}>
+          {studentStatusLabel(booking)}
         </span>
         <h3>{booking.resource.name}</h3>
+        {isExpiredRequest(booking) && (
+          <p className={styles.expiredNote}>
+            Not reviewed before its scheduled time ended. No booking was made.
+          </p>
+        )}
         <p>
           <ClockIcon /> {booking.startTime}–{booking.endTime} ICT
           <span aria-hidden="true">·</span>
@@ -135,8 +131,8 @@ export function StudentBookings({ user, timeline }: StudentBookingsProps) {
             <p><CalendarIcon /> Next booking</p>
             {next ? (
               <>
-                <span className={styles.nextStatus} data-status={next.status}>
-                  {statusLabels[next.status]}
+                <span className={styles.nextStatus} data-status={studentDisplayStatus(next)}>
+                  {studentStatusLabel(next)}
                 </span>
                 <h2 id="next-booking-title">{next.resource.name}</h2>
                 <strong>{dateParts(next.date).full}</strong>
@@ -302,7 +298,7 @@ export function StudentBookingDetail({ user, booking: initialBooking }: StudentB
         <Link className={styles.backLink} href="/bookings">← Back to my bookings</Link>
         <section className={styles.detailHero} aria-labelledby="booking-title">
           <div>
-            <span className={styles.status} data-status={booking.status}>{statusLabels[booking.status]}</span>
+            <span className={styles.status} data-status={studentDisplayStatus(booking)}>{studentStatusLabel(booking)}</span>
             <p>{booking.resource.code} · Booking reference {booking.id.slice(0, 8).toUpperCase()}</p>
             <h1 id="booking-title">{booking.resource.name}</h1>
             <span>{booking.resource.buildingName} · {booking.resource.location}</span>
@@ -315,7 +311,7 @@ export function StudentBookingDetail({ user, booking: initialBooking }: StudentB
             <div className={styles.detailHeading}><ClockIcon /><div><p>Booking schedule</p><h2 id="schedule-title">{date.full}</h2></div></div>
             <dl className={styles.detailFacts}>
               <div><dt>Time</dt><dd>{booking.startTime}–{booking.endTime} ICT (UTC+7)</dd></div>
-              <div><dt>Status</dt><dd>{statusLabels[booking.status]}</dd></div>
+              <div><dt>Status</dt><dd>{studentStatusLabel(booking)}</dd></div>
               <div><dt>Resource type</dt><dd>{booking.resource.type}</dd></div>
               <div><dt>Building</dt><dd>{booking.resource.buildingCode} · {booking.resource.buildingName}</dd></div>
               <div><dt>Location</dt><dd>{booking.resource.location}</dd></div>
@@ -331,7 +327,7 @@ export function StudentBookingDetail({ user, booking: initialBooking }: StudentB
                 booking.status === "confirmed" ||
                 booking.status === "checked_in")
                 ? booking.status === "pending"
-                  ? "Approval window ended"
+                  ? "Request expired without review"
                   : booking.status === "confirmed"
                     ? "Booking time ended"
                     : "Booking time ended while checked in"
@@ -359,7 +355,7 @@ export function StudentBookingDetail({ user, booking: initialBooking }: StudentB
                 booking.status === "confirmed" ||
                 booking.status === "checked_in")
                 ? booking.status === "pending"
-                  ? "The scheduled time ended before this request received a final review."
+                  ? "Campus staff did not review this request before its scheduled time ended, so it was never approved and no booking was made. Send a new request for another time if you still need the resource."
                   : booking.status === "confirmed"
                     ? "The scheduled time has ended. Campus staff can record a no-show if the resource was not used."
                     : "The scheduled time has ended, but checkout has not yet been recorded. Contact campus staff to complete the visit."

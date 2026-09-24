@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { AdminAnalytics } from "./admin-analytics";
 import type { AnalyticsSummary } from "../types";
@@ -63,5 +63,12 @@ describe("AdminAnalytics", () => {
     expect(screen.getByText("Not available")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "No bookings fall inside this range" })).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Most-booked resources" })).not.toBeInTheDocument();
+  });
+
+  it("links to staff approvals from the administrator navigation", () => {
+    render(<AdminAnalytics user={user} summary={summary} />);
+    const nav = screen.getByRole("navigation", { name: "Administrator sections" });
+    expect(within(nav).getByRole("link", { name: "Approvals" })).toHaveAttribute("href", "/staff");
+    expect(within(nav).getByRole("link", { name: "Analytics" })).toHaveAttribute("aria-current", "page");
   });
 });

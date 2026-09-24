@@ -2,6 +2,7 @@ import "server-only";
 
 import { cookies } from "next/headers";
 import { getServerApiEndpoint } from "@/lib/api/server-config";
+import { assertSessionActive } from "@/lib/api/session";
 import {
   parseStudentBooking,
   parseStudentBookingTimeline,
@@ -22,6 +23,7 @@ async function bookingRequest(
   } catch {
     throw new Error("The booking service is unavailable.");
   }
+  assertSessionActive(response);
   const body = await response.json().catch(() => null);
   if (!response.ok && response.status !== 404) {
     throw new Error(`Booking lookup failed with ${response.status}.`);

@@ -11,6 +11,7 @@ import {
 } from "react";
 import { useRouter } from "next/navigation";
 import { BrandMark } from "@/components/brand-mark";
+import { PaginationNav } from "@/components/pagination-nav";
 import { PeopleIcon, SearchIcon, ShieldCheckIcon } from "@/components/icons";
 import { LogoutButton } from "@/features/auth/components/logout-button";
 import type { User, UserRole } from "@/features/auth/types";
@@ -195,6 +196,7 @@ export function AdminUserManager({
           <Link href="/admin/resources">Resources</Link>
           <Link href="/admin/users" aria-current="page">Users</Link>
           <Link href="/admin/analytics">Analytics</Link>
+          <Link href="/staff">Approvals</Link>
         </nav>
         <div className={styles.identity}>
           <span><strong>{currentUser.fullName}</strong><small>Administrator</small></span>
@@ -228,7 +230,7 @@ export function AdminUserManager({
         </form>
 
         {result && <p ref={resultRef} className={styles.result} role="status" tabIndex={-1}>{result}</p>}
-        {error && !pending && <p className={styles.error} role="alert">{error}{error.includes("session") && <> <Link href="/login?next=/admin/users">Sign in again</Link>.</>}</p>}
+        {error && !pending && <p className={styles.error} role="alert">{error}{errorCode === "session" && <> <Link href="/login?next=/admin/users">Sign in again</Link>.</>}</p>}
 
         <section className={styles.directory} aria-labelledby="directory-title">
           <div className={styles.sectionHeading}>
@@ -256,7 +258,7 @@ export function AdminUserManager({
             </div>
           )}
 
-          {totalPages > 1 && directory.page <= totalPages && <nav className={styles.pagination} aria-label="User directory pages"><Link aria-disabled={directory.page === 1} tabIndex={directory.page === 1 ? -1 : undefined} href={directoryHref(filters, Math.max(1, directory.page - 1))}>Previous</Link><span>Page {directory.page} of {totalPages}</span><Link aria-disabled={directory.page === totalPages} tabIndex={directory.page === totalPages ? -1 : undefined} href={directoryHref(filters, Math.min(totalPages, directory.page + 1))}>Next</Link></nav>}
+          {directory.page <= totalPages && <PaginationNav className={styles.pagination} label="User directory pages" page={directory.page} totalPages={totalPages} hrefFor={(page) => directoryHref(filters, page)} />}
         </section>
       </div>
 

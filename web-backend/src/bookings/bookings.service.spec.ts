@@ -270,4 +270,100 @@ describe('BookingsService', () => {
       otherFailure,
     );
   });
+
+  describe('staff queues', () => {
+    function queueHarness(now: string) {
+      const findAndCount = jest.fn().mockResolvedValue([[], 57]);
+      const service = new BookingsService(
+        { getRepository: jest.fn().mockReturnValue({ findAndCount }) } as never,
+        () => new Date(now),
+        {} as never,
+      );
+      return { service, findAndCount };
+    }
+
+    it('filters reviewable pending requests in SQL and paginates oldest first', async () => {
+      // 10:30 on campus (UTC+7).
+      const { service, findAndCount } = queueHarness(
+        '2026-09-15T03:30:00.000Z',
+      );
+
+      await expect(service.findPendingForStaff(3, 20)).resolves.toMatchObject({
+        bookings: [],
+        total: 57,
+      });
+      const [options] = findAndCount.mock.calls[0];
+      expect(options).toMatchObject({
+        order: { createdAt: 'ASC', id: 'ASC' },
+        skip: 40,
+        take: 20,
+      });
+      expect(options.where).toEqual([
+        {
+          status: BookingStatus.PENDING,
+          date: expect.objectContaining({
+            _type: 'moreThan',
+            _value: '2026-09-15',
+          }),
+        },
+        {
+          status: BookingStatus.PENDING,
+          date: '2026-09-15',
+          endTime: expect.objectContaining({
+            _type: 'moreThan',
+            _value: '10:30',
+          }),
+        },
+      ]);
+    });
+
+    it('uses the campus date, not the UTC date, near midnight', async () => {
+      // 2026-09-15 23:30 UTC is 06:30 on 2026-09-16 on campus.
+      const { service, findAndCount } = queueHarness(
+        '2026-09-15T23:30:00.000Z',
+      );
+
+      await service.findPendingForStaff(1, 20);
+      const [options] = findAndCount.mock.calls[0];
+      expect(options.where[1]).toMatchObject({
+        date: '2026-09-16',
+        endTime: expect.objectContaining({ _value: '06:30' }),
+      });
+    });
+
+    it('paginates current and overdue operations with a stable order', async () => {
+      const { service, findAndCount } = queueHarness(
+        '2026-09-15T23:30:00.000Z',
+      );
+
+      await expect(
+        service.findOperationsForStaff(2, 10),
+      ).resolves.toMatchObject({
+        total: 57,
+        campusDate: '2026-09-16',
+      });
+      const [options] = findAndCount.mock.calls[0];
+      expect(options).toMatchObject({
+        order: { date: 'ASC', startTime: 'ASC', createdAt: 'ASC', id: 'ASC' },
+        skip: 10,
+        take: 10,
+      });
+      expect(options.where).toEqual([
+        {
+          date: expect.objectContaining({
+            _type: 'lessThanOrEqual',
+            _value: '2026-09-16',
+          }),
+          status: BookingStatus.CONFIRMED,
+        },
+        {
+          date: expect.objectContaining({
+            _type: 'lessThanOrEqual',
+            _value: '2026-09-16',
+          }),
+          status: BookingStatus.CHECKED_IN,
+        },
+      ]);
+    });
+  });
 });

@@ -7,6 +7,8 @@ import {
 } from "@/features/resources/api/server";
 import { ResourceDetail } from "@/features/resources/components/resource-detail";
 import { AvailabilityLiveRegion } from "@/features/resources/components/availability-live-region";
+import { resolveSlotSelection } from "@/features/resources/slot-selection";
+import { loginRedirectPath, withSessionRedirect } from "@/lib/api/session";
 
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -42,12 +44,6 @@ export default async function ResourceDetailPage({
   const { id } = await params;
   if (!UUID_PATTERN.test(id)) notFound();
 
-  const user = await getCurrentUser();
-  if (!user) redirect(`/login?next=/resources/${id}`);
-
-  const resource = await getResourceDetail(id);
-  if (!resource) notFound();
-
   const query = await searchParams;
   const dateValue = typeof query.date === "string" ? query.date : undefined;
   const checkedDate = isCalendarDate(dateValue) ? dateValue : undefined;
@@ -59,34 +55,34 @@ export default async function ResourceDetailPage({
     typeof query.endTime === "string" && SLOT_PATTERN.test(query.endTime)
       ? query.endTime
       : undefined;
-  const availability = checkedDate
-    ? await getResourceAvailability(id, checkedDate)
-    : null;
+
+  const returnParams = new URLSearchParams();
+  if (checkedDate) returnParams.set("date", checkedDate);
+  if (checkedDate && selectedStart) returnParams.set("startTime", selectedStart);
+  if (checkedDate && selectedEnd) returnParams.set("endTime", selectedEnd);
+  const returnQuery = returnParams.toString();
+  const returnTo = `/resources/${id}${returnQuery ? `?${returnQuery}` : ""}`;
+
+  const user = await getCurrentUser();
+  if (!user) redirect(loginRedirectPath(returnTo));
+
+  const { resource, availability } = await withSessionRedirect(
+    returnTo,
+    async () => {
+      const resource = await getResourceDetail(id);
+      if (!resource) return { resource: null, availability: null };
+      const availability = checkedDate
+        ? await getResourceAvailability(id, checkedDate)
+        : null;
+      return { resource, availability };
+    },
+  );
+  if (!resource) notFound();
   if (checkedDate && !availability) notFound();
 
-  const selectedSlots =
-    availability && selectedStart && selectedEnd && selectedStart < selectedEnd
-      ? availability.slots.filter(
-          (slot) =>
-            slot.startTime >= selectedStart && slot.endTime <= selectedEnd,
-        )
-      : [];
-  const selectedRangeIsAvailable =
-    selectedSlots.length > 0 &&
-    selectedSlots[0].startTime === selectedStart &&
-    selectedSlots.at(-1)?.endTime === selectedEnd &&
-    selectedSlots.every(
-      (slot, index) =>
-        index === 0 || selectedSlots[index - 1].endTime === slot.startTime,
-    );
-  const selectedSlot =
-    selectedStart && selectedEnd && selectedStart < selectedEnd
-      ? selectedRangeIsAvailable
-        ? { startTime: selectedStart, endTime: selectedEnd }
-        : undefined
-      : selectedEnd
-        ? undefined
-        : availability?.slots.find((slot) => slot.startTime === selectedStart);
+  const selection = availability
+    ? resolveSlotSelection(availability, selectedStart, selectedEnd)
+    : { selectedSlot: undefined, isSlotAvailable: false };
 
   return (
     <ResourceDetail
@@ -94,8 +90,8 @@ export default async function ResourceDetailPage({
       resource={resource}
       availability={availability}
       checkedDate={checkedDate}
-      selectedSlot={selectedSlot}
-      isSlotAvailable={selectedRangeIsAvailable}
+      selectedSlot={selection.selectedSlot}
+      isSlotAvailable={selection.isSlotAvailable}
       liveRegion={<AvailabilityLiveRegion key={checkedDate} resourceId={id} date={checkedDate} />}
     />
   );

@@ -127,11 +127,19 @@ describe('Check-in and checkout (e2e)', () => {
       .set('Cookie', studentCookie)
       .expect(409);
 
-    const operations = await api()
-      .get('/api/staff/bookings/operations')
+    // Operations are ordered by date, so this far-future booking is on the
+    // last page even when the database holds unrelated rows.
+    const head = await api()
+      .get('/api/staff/bookings/operations?pageSize=50')
       .set('Cookie', staffCookie)
       .expect(200);
-    const operation = operations.body.items.find(
+    const lastPage = await api()
+      .get(
+        `/api/staff/bookings/operations?page=${Math.max(head.body.totalPages, 1)}&pageSize=50`,
+      )
+      .set('Cookie', staffCookie)
+      .expect(200);
+    const operation = lastPage.body.items.find(
       (item: { id: string }) => item.id === bookingId,
     );
     expect(operation).toMatchObject({
@@ -244,8 +252,94 @@ describe('Check-in and checkout (e2e)', () => {
     );
     expect(operations.body).toMatchObject({
       total: 2,
+      page: 1,
+      pageSize: 20,
+      totalPages: 1,
       campusDate: '2099-01-20',
     });
+
+    const firstPage = await api()
+      .get('/api/staff/bookings/operations?page=1&pageSize=1')
+      .set('Cookie', staffCookie)
+      .expect(200);
+    const secondPage = await api()
+      .get('/api/staff/bookings/operations?page=2&pageSize=1')
+      .set('Cookie', staffCookie)
+      .expect(200);
+    expect(firstPage.body).toMatchObject({
+      total: 2,
+      page: 1,
+      pageSize: 1,
+      totalPages: 2,
+      campusDate: '2099-01-20',
+    });
+    expect(
+      [...firstPage.body.items, ...secondPage.body.items].map(
+        (item: { id: string }) => item.id,
+      ),
+    ).toEqual([checkedInId, confirmedIds[0]]);
+    const beyond = await api()
+      .get('/api/staff/bookings/operations?page=3&pageSize=1')
+      .set('Cookie', staffCookie)
+      .expect(200);
+    expect(beyond.body).toMatchObject({ items: [], total: 2, page: 3 });
+
+    for (const query of ['page=0', 'pageSize=0', 'pageSize=51', 'page=x']) {
+      await api()
+        .get(`/api/staff/bookings/operations?${query}`)
+        .set('Cookie', staffCookie)
+        .expect(400);
+    }
+  });
+
+  it('keeps only requests that have not ended in campus time in the pending queue', async () => {
+    now = new Date('2099-01-20T03:30:00.000Z'); // 10:30 ICT
+    const rows = await dataSource.query<{ id: string }[]>(
+      `INSERT INTO bookings (
+        resource_id, requester_id, booking_date, start_time, end_time, status
+      ) VALUES
+        ($1, $2, '2099-01-19', '15:00', '16:00', 'pending'),
+        ($1, $2, '2099-01-20', '07:00', '08:00', 'pending'),
+        ($1, $2, '2099-01-20', '10:00', '11:00', 'pending'),
+        ($1, $2, '2099-01-21', '08:00', '09:00', 'pending')
+      RETURNING id`,
+      [resourceId, studentId],
+    );
+    const idAt = (index: number) => rows[index].id;
+
+    // Requests are ordered oldest first, so ours are on the final pages.
+    const head = await api()
+      .get('/api/staff/bookings/pending?pageSize=50')
+      .set('Cookie', staffCookie)
+      .expect(200);
+    expect(head.body).toMatchObject({ page: 1, pageSize: 50 });
+    const items: { id: string; canReview: boolean }[] = [...head.body.items];
+    for (const page of [head.body.totalPages - 1, head.body.totalPages]) {
+      if (page <= 1) continue;
+      const tail = await api()
+        .get(`/api/staff/bookings/pending?page=${page}&pageSize=50`)
+        .set('Cookie', staffCookie)
+        .expect(200);
+      items.push(...tail.body.items);
+    }
+    const ids = items.map((item) => item.id);
+    expect(ids).toEqual(expect.arrayContaining([idAt(2), idAt(3)]));
+    expect(ids).not.toContain(idAt(0));
+    expect(ids).not.toContain(idAt(1));
+    expect(items.every((item) => item.canReview)).toBe(true);
+
+    // Independent timestamp-based formulation of "has not ended yet".
+    const [{ count }] = await dataSource.query<{ count: string }[]>(
+      `SELECT count(*)::text AS count FROM bookings
+       WHERE status = 'pending'
+         AND (booking_date + end_time) AT TIME ZONE 'Asia/Ho_Chi_Minh' > $1`,
+      [now.toISOString()],
+    );
+    expect(head.body.total).toBe(Number(count));
+
+    await dataSource.query('DELETE FROM bookings WHERE id = ANY($1)', [
+      rows.map(({ id }) => id),
+    ]);
   });
 
   it('rejects early check-in and permits no-show only after the booking ends', async () => {

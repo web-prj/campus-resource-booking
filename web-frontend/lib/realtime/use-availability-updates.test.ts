@@ -19,6 +19,7 @@ describe("useAvailabilityUpdates", () => {
       off: vi.fn(),
     };
     vi.spyOn(socketModule, "getSocket").mockReturnValue(mockSocket as unknown as ReturnType<typeof socketModule.getSocket>);
+    vi.spyOn(socketModule, "isSocketClosedByServer").mockReturnValue(false);
   });
 
   afterEach(() => {
@@ -82,5 +83,51 @@ describe("useAvailabilityUpdates", () => {
     // Simulate non-matching event
     eventHandler({ resourceId: "r2" });
     expect(onUpdate).toHaveBeenCalledTimes(1); // Still 1
+  });
+
+  it("stops listening when the server closes the socket", () => {
+    const onUpdate = vi.fn();
+    renderHook(() => useAvailabilityUpdates("r1", "2024-01-01", onUpdate));
+
+    const disconnect = mockSocket.on.mock.calls.find(
+      (call: unknown[]) => call[0] === "disconnect"
+    )?.[1] as (reason: string) => void;
+
+    disconnect("transport close");
+    expect(mockSocket.off).not.toHaveBeenCalled();
+
+    disconnect("io server disconnect");
+    const removed = mockSocket.off.mock.calls.map((call: unknown[]) => call[0]);
+    expect(removed).toEqual(
+      expect.arrayContaining([
+        "connect",
+        "disconnect",
+        "availability:changed",
+        "resource:changed",
+      ]),
+    );
+    expect(onUpdate).not.toHaveBeenCalled();
+  });
+
+  it("does not join or listen on a socket the server already closed", () => {
+    vi.mocked(socketModule.isSocketClosedByServer).mockReturnValue(true);
+    mockSocket.connected = false;
+
+    const { unmount } = renderHook(() =>
+      useAvailabilityUpdates("r1", "2024-01-01", vi.fn())
+    );
+    unmount();
+
+    expect(mockSocket.emit).not.toHaveBeenCalled();
+    expect(mockSocket.on).not.toHaveBeenCalled();
+  });
+
+  it("does not queue a leave message while disconnected", () => {
+    mockSocket.connected = false;
+    const { unmount } = renderHook(() =>
+      useAvailabilityUpdates("r1", "2024-01-01", vi.fn())
+    );
+    unmount();
+    expect(mockSocket.emit).not.toHaveBeenCalled();
   });
 });

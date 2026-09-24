@@ -1,6 +1,7 @@
 import { ConfigType } from '@nestjs/config';
 import { appConfig } from './app.config';
 import { authConfig } from './auth.config';
+import { bootstrapConfig } from './bootstrap.config';
 import { databaseConfig } from './database.config';
 import { throttleConfig } from './throttle.config';
 
@@ -10,15 +11,18 @@ export const configurations = [
   databaseConfig,
   authConfig,
   throttleConfig,
+  bootstrapConfig,
 ];
 
 export type AppConfig = ConfigType<typeof appConfig>;
 export type DatabaseConfig = ConfigType<typeof databaseConfig>;
 export type AuthConfig = ConfigType<typeof authConfig>;
 export type ThrottleConfig = ConfigType<typeof throttleConfig>;
+export type BootstrapConfig = ConfigType<typeof bootstrapConfig>;
 
 export { appConfig, APP_CONFIG_KEY } from './app.config';
 export { authConfig, AUTH_CONFIG_KEY } from './auth.config';
+export { bootstrapConfig, BOOTSTRAP_CONFIG_KEY } from './bootstrap.config';
 export { databaseConfig, DATABASE_CONFIG_KEY } from './database.config';
 export { throttleConfig, THROTTLE_CONFIG_KEY } from './throttle.config';
 export {

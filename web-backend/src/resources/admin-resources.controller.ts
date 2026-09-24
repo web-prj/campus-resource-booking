@@ -12,6 +12,7 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
+  Query,
 } from '@nestjs/common';
 import {
   ApiBadRequestResponse,
@@ -27,16 +28,20 @@ import {
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
 import { Roles } from '../auth/decorators/roles.decorator';
+import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
 import { UserRole } from '../users/enums/user-role.enum';
 import { BuildingResponseDto } from './dto/building-response.dto';
 import { CreateResourceClosureDto } from './dto/create-resource-closure.dto';
 import { CreateResourceDto } from './dto/create-resource.dto';
+import { ResourceActiveBookingsConflictDto } from './dto/resource-active-bookings-conflict.dto';
 import { ResourceClosureResponseDto } from './dto/resource-closure-response.dto';
+import { ResourcePageResponseDto } from './dto/resource-page-response.dto';
 import { ResourceResponseDto } from './dto/resource-response.dto';
 import { UpdateResourceStatusDto } from './dto/update-resource-status.dto';
 import { UpdateResourceDto } from './dto/update-resource.dto';
 import { Resource } from './entities/resource.entity';
 import { ResourceCodeAlreadyExistsError } from './errors/resource-code-already-exists.error';
+import { ResourceHasActiveBookingsError } from './errors/resource-has-active-bookings.error';
 import {
   BuildingNotFoundError,
   InvalidAvailabilityDateError,
@@ -56,12 +61,14 @@ export class AdminResourcesController {
   constructor(private readonly resourcesService: ResourcesService) {}
 
   @Get()
-  @ApiOperation({ summary: 'List resources for administration' })
-  @ApiOkResponse({ type: ResourceResponseDto, isArray: true })
-  async findAll(): Promise<ResourceResponseDto[]> {
-    return (await this.resourcesService.findAll()).map(
-      ResourceResponseDto.fromEntity,
-    );
+  @ApiOperation({ summary: 'List resources for administration, paginated' })
+  @ApiOkResponse({ type: ResourcePageResponseDto })
+  @ApiBadRequestResponse({ description: 'Invalid page or pageSize' })
+  async findAll(
+    @Query() { page, pageSize }: PaginationQueryDto,
+  ): Promise<ResourcePageResponseDto> {
+    const [items, total] = await this.resourcesService.findPage(page, pageSize);
+    return ResourcePageResponseDto.fromEntities(items, total, page, pageSize);
   }
 
   @Get('buildings')
@@ -89,7 +96,11 @@ export class AdminResourcesController {
   @ApiOperation({ summary: 'Edit a resource' })
   @ApiOkResponse({ type: ResourceResponseDto })
   @ApiBadRequestResponse({ description: 'Invalid resource data' })
-  @ApiConflictResponse({ description: 'Resource code already exists' })
+  @ApiConflictResponse({
+    type: ResourceActiveBookingsConflictDto,
+    description:
+      'Resource code already exists, or RESOURCE_HAS_ACTIVE_BOOKINGS when a changed operating schedule would exclude pending or confirmed bookings that have not ended',
+  })
   @ApiNotFoundResponse({ description: 'Resource or building not found' })
   async update(
     @Param('id', ParseUUIDPipe) id: string,
@@ -107,6 +118,11 @@ export class AdminResourcesController {
   @ApiOperation({ summary: 'Change a resource operational status' })
   @ApiOkResponse({ type: ResourceResponseDto })
   @ApiBadRequestResponse({ description: 'Invalid resource status' })
+  @ApiConflictResponse({
+    type: ResourceActiveBookingsConflictDto,
+    description:
+      'RESOURCE_HAS_ACTIVE_BOOKINGS: maintenance or inactive status is blocked while pending or confirmed bookings have not ended or a booking is checked in',
+  })
   @ApiNotFoundResponse({ description: 'Resource not found' })
   async updateStatus(
     @Param('id', ParseUUIDPipe) id: string,
@@ -137,7 +153,11 @@ export class AdminResourcesController {
   @ApiOperation({ summary: 'Close a resource for a campus-local date' })
   @ApiCreatedResponse({ type: ResourceClosureResponseDto })
   @ApiBadRequestResponse({ description: 'Invalid closure date or reason' })
-  @ApiConflictResponse({ description: 'Closure already exists for date' })
+  @ApiConflictResponse({
+    type: ResourceActiveBookingsConflictDto,
+    description:
+      'Closure already exists for date, or RESOURCE_HAS_ACTIVE_BOOKINGS when pending, confirmed, or checked-in bookings on that date have not ended',
+  })
   @ApiNotFoundResponse({ description: 'Resource not found' })
   async createClosure(
     @Param('id', ParseUUIDPipe) id: string,
@@ -196,6 +216,15 @@ export class AdminResourcesController {
       }
       if (error instanceof ResourceClosureAlreadyExistsError) {
         throw new ConflictException(error.message);
+      }
+      if (error instanceof ResourceHasActiveBookingsError) {
+        const body: ResourceActiveBookingsConflictDto = {
+          code: error.code,
+          message: error.message,
+          conflictCount: error.conflictCount,
+          conflictingBookings: error.conflictingBookings,
+        };
+        throw new ConflictException(body);
       }
       throw error;
     }

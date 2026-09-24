@@ -6,6 +6,7 @@ vi.mock("next/headers", () => ({
 }));
 
 import { getAdminUsers } from "./server";
+import { SessionExpiredError } from "@/lib/api/session";
 
 const user = {
   id: "11111111-1111-4111-8111-111111111111",
@@ -52,5 +53,10 @@ describe("admin user server API", () => {
   it("accepts matching pagination metadata", async () => {
     const request = vi.fn<typeof fetch>().mockResolvedValue(response({ items: [user], total: 1, page: 1, pageSize: 20, totalPages: 1 }));
     await expect(getAdminUsers({ page: 1 }, request)).resolves.toMatchObject({ items: [user], total: 1 });
+  });
+
+  it("signals an expired session instead of a generic failure", async () => {
+    const request = vi.fn<typeof fetch>().mockResolvedValue(new Response("{}", { status: 401 }));
+    await expect(getAdminUsers({ page: 1 }, request)).rejects.toBeInstanceOf(SessionExpiredError);
   });
 });

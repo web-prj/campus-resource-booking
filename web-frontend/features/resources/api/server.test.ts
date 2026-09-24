@@ -5,7 +5,9 @@ vi.mock("next/headers", () => ({
   cookies: vi.fn(async () => ({ toString: (): string => "access_token=test" })),
 }));
 
+import { SessionExpiredError } from "@/lib/api/session";
 import {
+  getAdminResourceCatalog,
   getResourceAvailability,
   getResourceDetail,
   getResourceDirectory,
@@ -54,9 +56,9 @@ const availability = {
   })),
 };
 
-function response(body: unknown): Response {
+function response(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
-    status: 200,
+    status,
     headers: { "Content-Type": "application/json" },
   });
 }
@@ -149,6 +151,60 @@ describe("resource server API", () => {
 
     await expect(getResourceDirectory({}, request)).rejects.toThrow(
       "invalid discovery data",
+    );
+  });
+
+  it("loads a paginated admin catalog page with its buildings", async () => {
+    const page = {
+      items: [resource],
+      total: 21,
+      page: 2,
+      pageSize: 20,
+      totalPages: 2,
+    };
+    const request = vi.fn<typeof fetch>(async (input) =>
+      String(input).includes("/buildings")
+        ? response([building])
+        : response(page),
+    );
+
+    await expect(getAdminResourceCatalog(2, request)).resolves.toEqual({
+      page,
+      buildings: [building],
+    });
+    expect(request).toHaveBeenCalledWith(
+      "http://backend:18320/api/admin/resources?page=2&pageSize=20",
+      expect.objectContaining({ cache: "no-store" }),
+    );
+  });
+
+  it("rejects a bare admin resource array and mismatched catalog pages", async () => {
+    const bare = vi.fn<typeof fetch>(async (input) =>
+      String(input).includes("/buildings")
+        ? response([building])
+        : response([resource]),
+    );
+    await expect(getAdminResourceCatalog(1, bare)).rejects.toThrow(
+      "invalid catalog data",
+    );
+
+    const mismatched = vi.fn<typeof fetch>(async (input) =>
+      String(input).includes("/buildings")
+        ? response([building])
+        : response({ items: [resource], total: 1, page: 1, pageSize: 20, totalPages: 1 }),
+    );
+    await expect(getAdminResourceCatalog(2, mismatched)).rejects.toThrow(
+      "invalid catalog data",
+    );
+  });
+
+  it("signals an expired session instead of a generic lookup failure", async () => {
+    const request = vi.fn<typeof fetch>().mockResolvedValue(response({}, 401));
+    await expect(getResourceDetail(resourceId, request)).rejects.toBeInstanceOf(
+      SessionExpiredError,
+    );
+    await expect(getAdminResourceCatalog(1, request)).rejects.toBeInstanceOf(
+      SessionExpiredError,
     );
   });
 });

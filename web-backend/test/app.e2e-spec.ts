@@ -38,6 +38,20 @@ describe('App (e2e)', () => {
     expect(response.headers['access-control-allow-credentials']).toBe('true');
   });
 
+  it('applies the configured credentialed CORS policy to WebSocket handshakes', async () => {
+    const allowed = await request(app.getHttpServer())
+      .get('/socket.io/?EIO=4&transport=polling')
+      .set('Origin', CORS_ORIGIN)
+      .expect(200);
+    expect(allowed.headers['access-control-allow-origin']).toBe(CORS_ORIGIN);
+    expect(allowed.headers['access-control-allow-credentials']).toBe('true');
+
+    const foreign = await request(app.getHttpServer())
+      .get('/socket.io/?EIO=4&transport=polling')
+      .set('Origin', 'https://evil.example');
+    expect(foreign.headers['access-control-allow-origin']).toBeUndefined();
+  });
+
   it('documents every MVP API area with cookie authentication', () => {
     const document = SwaggerModule.createDocument(app, createSwaggerConfig());
     const operations = Object.values(document.paths).flatMap((path) =>

@@ -190,4 +190,29 @@ describe("AdminUserManager", () => {
     expect(screen.getByRole("heading", { name: "No matching accounts" })).toBeVisible();
     expect(screen.getByRole("link", { name: "View all users" })).toHaveAttribute("href", "/admin/users");
   });
+
+  it("links to staff approvals from the administrator navigation", () => {
+    renderManager();
+    const nav = screen.getByRole("navigation", { name: "Administrator sections" });
+    expect(within(nav).getByRole("link", { name: "Approvals" })).toHaveAttribute("href", "/staff");
+    expect(within(nav).getByRole("link", { name: "Users" })).toHaveAttribute("aria-current", "page");
+    expect(within(nav).getByRole("link", { name: "Approvals" })).not.toHaveAttribute("aria-current");
+  });
+
+  it("paginates the directory with filters preserved and disabled ends", () => {
+    render(
+      <AdminUserManager
+        currentUser={currentUser}
+        directory={{ items: [student], total: 21, page: 2, pageSize: 20, totalPages: 2 }}
+        filters={{ page: 2, role: "student" }}
+      />,
+    );
+    const nav = screen.getByRole("navigation", { name: "User directory pages" });
+    expect(nav).toHaveTextContent("Page 2 of 2");
+    expect(within(nav).getByRole("link", { name: "Previous" })).toHaveAttribute(
+      "href",
+      "/admin/users?role=student",
+    );
+    expect(within(nav).getByText("Next")).toHaveAttribute("aria-disabled", "true");
+  });
 });
