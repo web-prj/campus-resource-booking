@@ -89,6 +89,10 @@ describe("BookingRequestForm", () => {
     await waitFor(() =>
       expect(screen.getByText("Booking confirmed.").parentElement).toHaveFocus(),
     );
+    expect(screen.getByRole("link", { name: "View booking" })).toHaveAttribute(
+      "href",
+      "/bookings/40000000-0000-4000-8000-000000000001",
+    );
     expect(refresh).not.toHaveBeenCalled();
   });
 
@@ -207,5 +211,41 @@ describe("BookingRequestForm", () => {
     expect(
       screen.queryByRole("button", { name: "Send booking request" }),
     ).not.toBeInTheDocument();
+  });
+
+  it("explains an unavailable selection without offering submission", () => {
+    render(
+      <BookingRequestForm
+        user={student}
+        resourceName="Study Room A101"
+        requiresApproval={false}
+        isSlotAvailable={false}
+        chooseAnotherHref="/resources/20000000-0000-4000-8000-000000000001?date=2099-01-05"
+        input={input}
+      />,
+    );
+
+    const status = screen.getByRole("status");
+    expect(status).toHaveTextContent("09:00–10:00 is no longer available.");
+    expect(status).toHaveTextContent("No new request was sent.");
+    expect(
+      screen.getByRole("heading", { name: "Selected time unavailable" }),
+    ).toBeVisible();
+    expect(screen.getByRole("link", { name: "Choose another slot" })).toHaveAttribute(
+      "href",
+      "/resources/20000000-0000-4000-8000-000000000001?date=2099-01-05",
+    );
+    expect(
+      screen.queryByRole("button", { name: "Send booking request" }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText(/Selecting a slot does not hold it/)).not.toBeInTheDocument();
+  });
+
+  it("does not show the unavailable notice for an available selection", () => {
+    renderForm();
+    expect(screen.queryByText(/no longer available/)).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Send booking request" }),
+    ).toBeEnabled();
   });
 });

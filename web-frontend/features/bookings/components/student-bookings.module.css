@@ -50,6 +50,7 @@
 .nextStatus[data-status="pending"], .status[data-status="pending"] { color: #775500; background: #fff1bd; }
 .status[data-status="rejected"] { color: #8c1d21; background: #ffe2e3; }
 .status[data-status="cancelled"] { color: #7b3032; background: #f9dddd; }
+.nextStatus[data-status="expired"], .status[data-status="expired"] { color: #4d5575; background: #e7e9f2; }
 .nextMarker { position: relative; z-index: 1; width: 155px; height: 175px; display: grid; flex: 0 0 auto; place-content: center; text-align: center; border: 1px solid rgba(255,255,255,.22); border-radius: 24px; background: rgba(255,255,255,.11); backdrop-filter: blur(15px); }
 .nextMarker span { font-family: var(--font-display); font-size: 4rem; line-height: .9; }
 .nextMarker small { margin-top: 8px; color: rgba(255,255,255,.68); font-weight: 800; }
@@ -76,6 +77,7 @@
 .bookingIdentity h3 { margin: 5px 0 0; font-size: .96rem; }
 .bookingIdentity p { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; margin: 5px 0 0; color: var(--muted); font-size: .75rem; }
 .bookingIdentity p svg { width: 14px; height: 14px; color: var(--usth-blue); }
+.bookingIdentity p.expiredNote { color: #4d5575; font-weight: 650; }
 .detailLink { min-height: 42px; display: inline-flex; align-items: center; gap: 6px; color: var(--usth-blue); font-size: .76rem; font-weight: 790; }
 .emptyState { display: grid; grid-template-columns: 44px minmax(0,1fr) auto; align-items: center; gap: 14px; margin-top: 14px; padding: 22px; border: 1px dashed rgba(42,60,149,.2); border-radius: 16px; background: rgba(255,255,255,.55); }
 .emptyState > svg { width: 44px; height: 44px; padding: 11px; color: var(--usth-blue); border-radius: 12px; background: rgba(42,60,149,.07); }

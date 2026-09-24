@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { BrandMark } from "@/components/brand-mark";
+import { PaginationNav } from "@/components/pagination-nav";
 import {
   EquipmentIcon,
   LaboratoryIcon,
@@ -20,10 +21,14 @@ import {
   updateResource,
   updateResourceStatus,
 } from "../api/browser";
+import { adminResourcesHref } from "../admin-query";
 import type {
   Building,
   Resource,
+  ResourceBookingConflict,
   ResourceClosure,
+  ResourceConflictBookingStatus,
+  ResourcePage,
   ResourceInput,
   ResourceStatus,
   ResourceType,
@@ -36,11 +41,95 @@ const resourceTypes: { value: ResourceType; label: string }[] = [
   { value: "equipment", label: "Equipment" },
 ];
 
-const statusLabels: Record<ResourceStatus, string> = {
-  active: "Active",
-  maintenance: "Maintenance",
-  inactive: "Inactive",
+const statusChangeMessages: Record<ResourceStatus, string> = {
+  active: "is active and open for booking.",
+  maintenance: "is under maintenance and cannot be booked.",
+  inactive: "is inactive and hidden from students.",
 };
+
+const conflictStatusLabels: Record<ResourceConflictBookingStatus, string> = {
+  pending: "Pending approval",
+  confirmed: "Confirmed",
+  checked_in: "Checked in",
+};
+
+type ConflictContext = "status" | "edit" | "closure";
+
+interface ActiveConflict {
+  context: ConflictContext;
+  conflict: ResourceBookingConflict;
+}
+
+function conflictDate(date: string): string {
+  return new Intl.DateTimeFormat("en-GB", {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    timeZone: "Asia/Ho_Chi_Minh",
+  }).format(new Date(`${date}T00:00:00+07:00`));
+}
+
+function ActiveBookingConflictAlert({
+  conflict,
+  id,
+}: {
+  conflict: ResourceBookingConflict;
+  id: string;
+}) {
+  const alertRef = useRef<HTMLDivElement>(null);
+  const remaining =
+    conflict.conflictCount - conflict.conflictingBookings.length;
+  const isSingle = conflict.conflictCount === 1;
+  const countLabel = `${conflict.conflictCount} active ${
+    isSingle ? "booking" : "bookings"
+  }`;
+
+  // The alert can render far from the control that triggered it (for example
+  // above the catalog table on small screens), so bring it into view.
+  useEffect(() => {
+    alertRef.current?.focus();
+  }, [conflict]);
+
+  return (
+    <div
+      ref={alertRef}
+      className={styles.conflictAlert}
+      role="alert"
+      aria-labelledby={`${id}-title`}
+      tabIndex={-1}
+    >
+      <p id={`${id}-title`}>
+        <strong>{conflict.message}</strong>
+      </p>
+      <p>
+        {countLabel} would be affected. Resolve{" "}
+        {isSingle ? "it" : "them"} in staff operations, then try again.
+      </p>
+      {conflict.conflictingBookings.length > 0 && (
+        <ul aria-label="Conflicting bookings">
+          {conflict.conflictingBookings.map((booking) => (
+            <li key={booking.id}>
+              <Link href={`/staff/bookings/${booking.id}`}>
+                <span>
+                  {conflictDate(booking.date)} · {booking.startTime}–
+                  {booking.endTime} ICT
+                </span>
+                <small>{conflictStatusLabels[booking.status]}</small>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      )}
+      {remaining > 0 && (
+        <p>
+          and {remaining} more{" "}
+          {remaining === 1 ? "booking is" : "bookings are"} not listed.
+        </p>
+      )}
+    </div>
+  );
+}
 
 const operatingDayOptions = [
   { value: 1, label: "Mon" },
@@ -188,21 +277,25 @@ function toInput(form: FormState): ResourceInput {
 
 interface AdminResourceManagerProps {
   user: User;
-  resources: Resource[];
+  page: ResourcePage;
   buildings: Building[];
 }
 
 export function AdminResourceManager({
   user,
-  resources: initialResources,
+  page,
   buildings,
 }: AdminResourceManagerProps) {
-  const [resources, setResources] = useState(initialResources);
+  const [resources, setResources] = useState(page.items);
+  const [total, setTotal] = useState(page.total);
+  const [conflict, setConflict] = useState<ActiveConflict | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<FormState>(() => emptyForm(buildings));
   const [errors, setErrors] = useState<FormErrors>({});
   const [message, setMessage] = useState("");
   const [formError, setFormError] = useState("");
+  const [statusMessage, setStatusMessage] = useState("");
+  const [statusError, setStatusError] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [statusPendingId, setStatusPendingId] = useState<string | null>(null);
   const [closures, setClosures] = useState<ResourceClosure[]>([]);
@@ -282,9 +375,12 @@ export function AdminResourceManager({
     }
   }, [statusPendingId]);
 
+  const isPaged = page.totalPages > 1;
+  const signInHref = `/login?next=${encodeURIComponent(
+    adminResourcesHref(page.page),
+  )}`;
   const counts = useMemo(
     () => ({
-      total: resources.length,
       active: resources.filter((resource) => resource.status === "active")
         .length,
       maintenance: resources.filter(
@@ -329,8 +425,35 @@ export function AdminResourceManager({
     });
   }
 
+  function reportFailure(
+    error: unknown,
+    context: ConflictContext,
+    fallback: string,
+    setError: (message: string) => void,
+  ) {
+    if (error instanceof ResourceMutationError && error.code === "session") {
+      setSessionExpired(true);
+      setError("");
+    } else if (
+      error instanceof ResourceMutationError &&
+      error.code === "active-bookings" &&
+      error.conflict
+    ) {
+      // The conflict alert takes focus so its booking links are reachable;
+      // skip returning focus to the control that triggered the change.
+      statusFocusPendingRef.current = null;
+      saveFocusPendingRef.current = false;
+      closureFocusPendingRef.current = false;
+      setConflict({ context, conflict: error.conflict });
+      setError("");
+    } else {
+      setError(error instanceof ResourceMutationError ? error.message : fallback);
+    }
+  }
+
   function startCreate() {
     if (isMutating) return;
+    setConflict(null);
     setEditingId(null);
     setClosures([]);
     setClosuresLoading(false);
@@ -347,6 +470,7 @@ export function AdminResourceManager({
 
   function startEdit(resource: Resource) {
     if (isMutating) return;
+    setConflict(null);
     setEditingId(resource.id);
     setClosures([]);
     setClosuresLoading(true);
@@ -380,6 +504,7 @@ export function AdminResourceManager({
 
     mutationLockRef.current = true;
     setIsSaving(true);
+    setConflict(null);
     try {
       const saved = editingId
         ? await updateResource(editingId, toInput(form))
@@ -393,6 +518,7 @@ export function AdminResourceManager({
           : [...current, saved];
         return next.sort((a, b) => a.name.localeCompare(b.name));
       });
+      if (!editingId) setTotal((current) => current + 1);
       setMessage(editingId ? "Resource changes saved." : "Resource created.");
       if (!editingId) {
         setClosures([]);
@@ -404,16 +530,12 @@ export function AdminResourceManager({
       setEditingId(saved.id);
       setForm(formFor(saved));
     } catch (error) {
-      if (error instanceof ResourceMutationError && error.code === "session") {
-        setSessionExpired(true);
-        setFormError("");
-      } else {
-        setFormError(
-          error instanceof ResourceMutationError
-            ? error.message
-            : "The resource could not be saved. Try again.",
-        );
-      }
+      reportFailure(
+        error,
+        "edit",
+        "The resource could not be saved. Try again.",
+        setFormError,
+      );
     } finally {
       saveFocusPendingRef.current = true;
       mutationLockRef.current = false;
@@ -434,6 +556,7 @@ export function AdminResourceManager({
     setClosurePending(true);
     setClosureError("");
     setClosureMessage("");
+    setConflict(null);
     try {
       const closure = await createResourceClosure(editingId, {
         date: closureDate,
@@ -446,16 +569,12 @@ export function AdminResourceManager({
       setClosureReason("");
       setClosureMessage(`Closure added for ${closure.date}.`);
     } catch (error) {
-      if (error instanceof ResourceMutationError && error.code === "session") {
-        setSessionExpired(true);
-        setClosureError("");
-      } else {
-        setClosureError(
-          error instanceof ResourceMutationError
-            ? error.message
-            : "The closure could not be added.",
-        );
-      }
+      reportFailure(
+        error,
+        "closure",
+        "The closure could not be added.",
+        setClosureError,
+      );
     } finally {
       closureFocusPendingRef.current = true;
       mutationLockRef.current = false;
@@ -500,27 +619,22 @@ export function AdminResourceManager({
     mutationLockRef.current = true;
     statusFocusPendingRef.current = resource.id;
     setStatusPendingId(resource.id);
-    setFormError("");
-    setMessage("");
+    setStatusError("");
+    setStatusMessage("");
+    setConflict(null);
     try {
       const updated = await updateResourceStatus(resource.id, status);
       setResources((current) =>
         current.map((item) => (item.id === updated.id ? updated : item)),
       );
-      setMessage(
-        `${updated.name} is now ${statusLabels[status].toLowerCase()}.`,
-      );
+      setStatusMessage(`${updated.name} ${statusChangeMessages[status]}`);
     } catch (error) {
-      if (error instanceof ResourceMutationError && error.code === "session") {
-        setSessionExpired(true);
-        setFormError("");
-      } else {
-        setFormError(
-          error instanceof ResourceMutationError
-            ? error.message
-            : "The status could not be changed. Try again.",
-        );
-      }
+      reportFailure(
+        error,
+        "status",
+        "The status could not be changed. Try again.",
+        setStatusError,
+      );
     } finally {
       mutationLockRef.current = false;
       setStatusPendingId(null);
@@ -535,6 +649,7 @@ export function AdminResourceManager({
           <Link href="/admin/resources" aria-current="page">Resources</Link>
           <Link href="/admin/users">Users</Link>
           <Link href="/admin/analytics">Analytics</Link>
+          <Link href="/staff">Approvals</Link>
         </nav>
         <div className={styles.identity}>
           <span>
@@ -573,35 +688,35 @@ export function AdminResourceManager({
         {sessionExpired && (
           <p className={styles.errorMessage} role="alert">
             Your session has ended. {" "}
-            <Link href="/login?next=/admin/resources">Sign in again</Link> to
+            <Link href={signInHref}>Sign in again</Link> to
             continue managing resources.
           </p>
         )}
 
         <section className={styles.summary} aria-label="Admin dashboard summary">
           <p>
-            <strong>{counts.total}</strong>
+            <strong>{total}</strong>
             <span>Total resources</span>
           </p>
           <p>
             <strong>{counts.active}</strong>
-            <span>Active</span>
+            <span>{isPaged ? "Active on this page" : "Active"}</span>
           </p>
           <p>
             <strong>{counts.maintenance}</strong>
-            <span>In maintenance</span>
+            <span>{isPaged ? "In maintenance on this page" : "In maintenance"}</span>
           </p>
           <p>
             <strong>{counts.inactive}</strong>
-            <span>Inactive</span>
+            <span>{isPaged ? "Inactive on this page" : "Inactive"}</span>
           </p>
           <p>
             <strong>{counts.approval}</strong>
-            <span>Require approval</span>
+            <span>{isPaged ? "Require approval on this page" : "Require approval"}</span>
           </p>
           <p>
             <strong>{counts.buildings}</strong>
-            <span>Buildings represented</span>
+            <span>{isPaged ? "Buildings on this page" : "Buildings represented"}</span>
           </p>
         </section>
 
@@ -612,7 +727,34 @@ export function AdminResourceManager({
                 <h2 id="catalog-title">Resource catalog</h2>
                 <p>Operational status can be changed directly in the list.</p>
               </div>
+              {total > 0 && isPaged && (
+                <p className={styles.pagePosition}>
+                  Page {page.page} of {page.totalPages} · {total} resources
+                </p>
+              )}
             </div>
+
+            <div
+              className={styles.catalogStatus}
+              role="status"
+              aria-live="polite"
+              aria-atomic="true"
+            >
+              {statusError && (
+                <p className={styles.errorMessage} role="alert">
+                  {statusError}
+                </p>
+              )}
+              {statusMessage && (
+                <p className={styles.successMessage}>{statusMessage}</p>
+              )}
+            </div>
+            {conflict?.context === "status" && (
+              <ActiveBookingConflictAlert
+                id="status-conflict"
+                conflict={conflict.conflict}
+              />
+            )}
 
             {resources.length === 0 ? (
               <div className={styles.emptyState}>
@@ -736,6 +878,7 @@ export function AdminResourceManager({
                                 type="button"
                                 disabled={isMutating}
                                 onClick={() => startEdit(resource)}
+                                aria-label={`Edit ${resource.name}`}
                               >
                                 Edit
                               </button>
@@ -748,6 +891,13 @@ export function AdminResourceManager({
                 </div>
               </>
             )}
+            <PaginationNav
+              className={styles.pagination}
+              label="Resource catalog pages"
+              page={page.page}
+              totalPages={page.totalPages}
+              hrefFor={adminResourcesHref}
+            />
           </section>
 
           <aside
@@ -1086,6 +1236,12 @@ export function AdminResourceManager({
                 )}
                 {message && <p className={styles.successMessage}>{message}</p>}
               </div>
+              {conflict?.context === "edit" && (
+                <ActiveBookingConflictAlert
+                  id="edit-conflict"
+                  conflict={conflict.conflict}
+                />
+              )}
               <button
                 ref={saveButtonRef}
                 className={styles.saveButton}
@@ -1158,6 +1314,12 @@ export function AdminResourceManager({
                     <p className={styles.errorMessage} role="alert">
                       {closureError}
                     </p>
+                  )}
+                  {conflict?.context === "closure" && (
+                    <ActiveBookingConflictAlert
+                      id="closure-conflict"
+                      conflict={conflict.conflict}
+                    />
                   )}
                   {closuresLoading ? (
                     <p className={styles.closureEmpty} role="status">

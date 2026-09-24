@@ -1,7 +1,7 @@
 .page { min-height: 100vh; color: var(--ink); background: radial-gradient(circle at 86% 0, rgba(94,114,210,.17), transparent 30rem), #f2f4fb; }
 .header { min-height: 78px; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 28px; padding: 14px clamp(24px,5vw,72px); border-bottom: 1px solid rgba(42,60,149,.12); background: rgba(248,249,255,.84); backdrop-filter: blur(18px); }
 .header nav { display: flex; align-items: center; gap: 6px; padding: 4px; border: 1px solid rgba(42,60,149,.12); border-radius: 12px; background: rgba(255,255,255,.7); }
-.header nav a { min-height: 38px; display: grid; place-items: center; padding: 0 16px; border-radius: 8px; color: var(--muted); font-size: .82rem; font-weight: 750; }
+.header nav a { min-height: 44px; display: grid; place-items: center; padding: 0 16px; border-radius: 8px; color: var(--muted); font-size: .82rem; font-weight: 750; }
 .header nav a[aria-current="page"] { color: var(--white); background: var(--usth-blue); }
 .identity { justify-self: end; display: flex; align-items: center; gap: 18px; }
 .identity > span { display: grid; text-align: right; line-height: 1.35; }
@@ -13,7 +13,7 @@
 .intro { display: flex; align-items: end; justify-content: space-between; gap: 40px; }
 .context { margin: 0 0 8px; padding-left: 9px; color: var(--usth-blue); border-left: 3px solid var(--usth-red); font-size: .75rem; font-weight: 780; line-height: 1.2; }
 .intro h1 { max-width: 750px; margin: 0; font-family: var(--font-display); font-size: clamp(2rem,3.3vw,3.25rem); line-height: 1.02; letter-spacing: -.05em; }
-.intro > div > p:last-child { max-width: 680px; margin: 16px 0 0; color: var(--muted); }
+.intro > div:first-child > p:last-child { max-width: 680px; margin: 16px 0 0; color: var(--muted); }
 .accessPrinciple { max-width: 350px; display: flex; gap: 14px; padding: 18px; color: var(--white); border-radius: 18px; background: var(--usth-blue-deep); box-shadow: var(--shadow-sm); }
 .accessPrinciple svg { flex: 0 0 auto; color: #aebaff; }
 .accessPrinciple p { display: grid; gap: 3px; margin: 0; line-height: 1.35; }
@@ -55,10 +55,7 @@
 .access > span[data-active="true"] { color: #116347; background: #e7f7f1; }
 .access button { min-height: 38px; padding: 0 12px; color: var(--usth-blue); border: 1px solid rgba(42,60,149,.2); border-radius: 9px; background: var(--white); cursor: pointer; font-size: .75rem; font-weight: 750; }
 .access button:disabled { cursor: not-allowed; opacity: .5; }
-.pagination { display: flex; align-items: center; justify-content: flex-end; gap: 16px; padding: 18px 24px; border-top: 1px solid rgba(42,60,149,.1); }
-.pagination a { min-height: 40px; display: grid; place-items: center; padding: 0 14px; color: var(--usth-blue); border: 1px solid rgba(42,60,149,.18); border-radius: 9px; font-weight: 750; }
-.pagination a[aria-disabled="true"] { pointer-events: none; opacity: .45; }
-.pagination span { color: var(--muted); font-size: .8rem; }
+.directory .pagination { justify-content: flex-end; padding: 18px 24px; border-top: 1px solid rgba(42,60,149,.1); }
 .empty { display: grid; justify-items: center; padding: 72px 24px; text-align: center; }
 .empty svg { width: 38px; height: 38px; color: var(--usth-blue); }
 .empty h3 { margin: 14px 0 5px; font-family: var(--font-display); }
@@ -79,5 +76,5 @@
 .dialogRecovery > button { cursor: pointer; }
 .srOnly { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; }
 @media (max-width: 980px) { .header { grid-template-columns: 1fr auto; } .header nav { grid-row: 2; grid-column: 1 / -1; justify-self: center; } .intro { align-items: start; flex-direction: column; } .accessPrinciple { max-width: 100%; } .filters { grid-template-columns: 1fr 1fr; } .searchField { grid-column: 1 / -1; } }
-@media (max-width: 640px) { .header { display: flex; flex-wrap: wrap; padding: 12px 18px; } .identity { margin-left: auto; } .identity > span { display: none; } .header nav { order: 3; width: 100%; } .header nav a { flex: 1; } .shell { width: min(100% - 28px, 1380px); padding-top: 28px; } .intro h1 { font-size: 2.25rem; } .filters { grid-template-columns: 1fr; padding: 14px; } .searchField { grid-column: auto; } .filters button, .filters > a { width: 100%; } .sectionHeading { align-items: start; flex-direction: column; padding: 20px; } .pagination { justify-content: space-between; gap: 8px; padding: 14px; } .pagination span { text-align: center; } .confirmation { padding: 23px; } .confirmation > div { flex-direction: column-reverse; } .confirmation button { width: 100%; min-height: 48px; } }
+@media (max-width: 640px) { .header { display: flex; flex-wrap: wrap; padding: 12px 18px; } .identity { margin-left: auto; } .identity > span { display: none; } .header nav { order: 3; width: 100%; overflow-x: auto; } .header nav a { flex: 1; padding-inline: 10px; white-space: nowrap; } .shell { width: min(100% - 28px, 1380px); padding-top: 28px; } .intro h1 { font-size: 2.25rem; } .filters { grid-template-columns: 1fr; padding: 14px; } .searchField { grid-column: auto; } .filters button, .filters > a { width: 100%; } .sectionHeading { align-items: start; flex-direction: column; padding: 20px; } .directory .pagination { justify-content: space-between; padding: 14px; } .confirmation { padding: 23px; } .confirmation > div { flex-direction: column-reverse; } .confirmation button { width: 100%; min-height: 48px; } }
 @media (prefers-reduced-motion: reduce) { .page, .page * { scroll-behavior: auto !important; transition: none !important; animation: none !important; } }

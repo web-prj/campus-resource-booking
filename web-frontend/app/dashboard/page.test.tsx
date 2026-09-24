@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { SessionExpiredError } from "@/lib/api/session";
 import { getCurrentUser } from "@/features/auth/api/server";
 import { getStudentBookings } from "@/features/bookings/api/server";
 import {
@@ -102,5 +103,14 @@ describe("DashboardPage", () => {
       campusDate: dates[0],
     });
     expect(page.props.resources).toHaveLength(3);
+  });
+
+  it("returns an expired session to sign in for the dashboard", async () => {
+    vi.mocked(getCurrentUser).mockResolvedValue(student);
+    vi.mocked(getStudentBookings).mockRejectedValue(new SessionExpiredError());
+    vi.mocked(getResourceDirectory).mockRejectedValue(new SessionExpiredError());
+    await expect(DashboardPage()).rejects.toThrow(
+      "redirect:/login?next=%2Fdashboard",
+    );
   });
 });

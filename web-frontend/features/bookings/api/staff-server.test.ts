@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { cookies } from "next/headers";
+import { SessionExpiredError } from "@/lib/api/session";
 import {
   getStaffBooking,
   getStaffBookingQueue,
@@ -60,13 +61,13 @@ describe("staff booking server API", () => {
     vi.stubEnv("INTERNAL_API_URL", "http://backend:18320/api");
   });
 
-  it("loads the oldest-first queue with cookie credentials and no caching", async () => {
-    const queue = { items: [booking], total: 1 };
+  it("loads the oldest-first queue page with cookie credentials and no caching", async () => {
+    const queue = { items: [booking], total: 1, page: 1, pageSize: 20, totalPages: 1 };
     const request = vi.fn<typeof fetch>().mockResolvedValue(response(queue));
 
-    await expect(getStaffBookingQueue(request)).resolves.toEqual(queue);
+    await expect(getStaffBookingQueue(1, request)).resolves.toEqual(queue);
     expect(request).toHaveBeenCalledWith(
-      "http://backend:18320/api/staff/bookings/pending",
+      "http://backend:18320/api/staff/bookings/pending?page=1&pageSize=20",
       {
         headers: { Cookie: "access_token=session" },
         cache: "no-store",
@@ -74,23 +75,77 @@ describe("staff booking server API", () => {
     );
   });
 
+  it("requests the operations page and keeps totals across all pages", async () => {
+    const confirmed = {
+      ...booking,
+      status: "confirmed",
+      canReview: false,
+      reviewedAt: "2026-09-15T01:00:00.000Z",
+      reviewer: booking.requester,
+    };
+    const operations = {
+      items: [confirmed],
+      total: 21,
+      page: 2,
+      pageSize: 20,
+      totalPages: 2,
+      campusDate: "2099-01-05",
+    };
+    const request = vi.fn<typeof fetch>().mockResolvedValue(response(operations));
+
+    await expect(getStaffOperationsQueue(2, request)).resolves.toMatchObject({
+      total: 21,
+      page: 2,
+      totalPages: 2,
+    });
+    expect(request.mock.calls[0][0]).toBe(
+      "http://backend:18320/api/staff/bookings/operations?page=2&pageSize=20",
+    );
+  });
+
+  it("rejects a queue page that does not match the requested page", async () => {
+    const queue = { items: [booking], total: 1, page: 1, pageSize: 20, totalPages: 1 };
+    await expect(
+      getStaffBookingQueue(
+        2,
+        vi.fn<typeof fetch>().mockResolvedValue(response(queue)),
+      ),
+    ).rejects.toThrow("invalid queue data");
+  });
+
   it("rejects malformed or duplicate queue and operations data", async () => {
     const duplicate = {
       items: [booking, booking],
       total: 2,
+      page: 1,
+      pageSize: 20,
+      totalPages: 1,
       campusDate: "2099-01-05",
     };
     await expect(
       getStaffBookingQueue(
+        1,
         vi.fn<typeof fetch>().mockResolvedValue(response(duplicate)),
       ),
     ).rejects.toThrow("invalid queue data");
 
     await expect(
       getStaffOperationsQueue(
+        1,
         vi.fn<typeof fetch>().mockResolvedValue(response(duplicate)),
       ),
     ).rejects.toThrow("invalid operations data");
+  });
+
+  it("signals an expired session instead of a generic failure", async () => {
+    const unauthorized = () =>
+      vi.fn<typeof fetch>().mockResolvedValue(response({}, 401));
+    await expect(getStaffBookingQueue(1, unauthorized())).rejects.toBeInstanceOf(
+      SessionExpiredError,
+    );
+    await expect(
+      getStaffBooking(booking.id, unauthorized()),
+    ).rejects.toBeInstanceOf(SessionExpiredError);
   });
 
   it("returns null only for a missing detail and rejects out-of-scope responses", async () => {

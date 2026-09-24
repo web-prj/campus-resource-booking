@@ -4,6 +4,7 @@ import {
   getStaffBooking,
   getStaffResourceSchedule,
 } from "@/features/bookings/api/staff-server";
+import { SessionExpiredError } from "@/lib/api/session";
 import { notFound, redirect } from "next/navigation";
 import StaffBookingDetailPage from "./page";
 
@@ -126,5 +127,25 @@ describe("StaffBookingDetailPage", () => {
       booking.date,
     );
     expect(page.props).toMatchObject({ user: staff, booking, schedule });
+  });
+
+  it("lets administrators review booking details", async () => {
+    const admin = { ...staff, role: "admin" as const };
+    vi.mocked(getCurrentUser).mockResolvedValue(admin);
+    vi.mocked(getStaffBooking).mockResolvedValue(booking);
+    vi.mocked(getStaffResourceSchedule).mockResolvedValue(schedule);
+
+    const page = await StaffBookingDetailPage(pageParams());
+
+    expect(page.props).toMatchObject({ user: admin, booking });
+  });
+
+  it("returns an expired session to sign in for the same booking", async () => {
+    vi.mocked(getCurrentUser).mockResolvedValue(staff);
+    vi.mocked(getStaffBooking).mockRejectedValue(new SessionExpiredError());
+
+    await expect(StaffBookingDetailPage(pageParams())).rejects.toThrow(
+      `redirect:/login?next=${encodeURIComponent(`/staff/bookings/${booking.id}`)}`,
+    );
   });
 });

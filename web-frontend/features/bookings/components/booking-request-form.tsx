@@ -14,6 +14,8 @@ interface BookingRequestFormProps {
   resourceName: string;
   requiresApproval: boolean;
   isSlotAvailable?: boolean;
+  /** Where to send the student to pick a different interval. */
+  chooseAnotherHref?: string;
   input: BookingRequestInput;
 }
 
@@ -32,6 +34,7 @@ export function BookingRequestForm({
   resourceName,
   requiresApproval,
   isSlotAvailable = true,
+  chooseAnotherHref,
   input,
 }: BookingRequestFormProps) {
   const router = useRouter();
@@ -85,6 +88,10 @@ export function BookingRequestForm({
     input.endTime,
   )}`;
   const signInHref = `/login?next=${encodeURIComponent(bookingHref)}`;
+  const anotherSlotHref =
+    chooseAnotherHref ??
+    `/resources/${input.resourceId}?date=${encodeURIComponent(input.date)}`;
+  const isUnavailable = !result && !isSlotAvailable;
 
   return (
     <section
@@ -95,17 +102,21 @@ export function BookingRequestForm({
       <div className={styles.heading}>
         <div>
           <p>Selected booking interval</p>
-          <h3 id="booking-request-title">Request this resource</h3>
+          <h3 id="booking-request-title">
+            {isUnavailable ? "Selected time unavailable" : "Request this resource"}
+          </h3>
         </div>
-        <span>
-          {result
-            ? result.status === "pending"
-              ? "Staff approval"
-              : "Confirmed"
-            : requiresApproval
-              ? "Staff approval"
-              : "Immediate confirmation"}
-        </span>
+        {!isUnavailable && (
+          <span>
+            {result
+              ? result.status === "pending"
+                ? "Staff approval"
+                : "Confirmed"
+              : requiresApproval
+                ? "Staff approval"
+                : "Immediate confirmation"}
+          </span>
+        )}
       </div>
 
       <dl className={styles.summary}>
@@ -140,6 +151,9 @@ export function BookingRequestForm({
           <span>
             {resourceName} · {displayDate(result.date)} · {result.startTime}–{result.endTime} ICT
           </span>
+          <Link className={styles.sessionLink} href={`/bookings/${result.id}`}>
+            View booking
+          </Link>
         </div>
       ) : errorCode === "conflict" || errorCode === "not-found" ? (
         <button type="button" onClick={() => router.refresh()}>
@@ -149,10 +163,19 @@ export function BookingRequestForm({
         <Link className={styles.sessionLink} href={signInHref}>
           Sign in again
         </Link>
-      ) : !isSlotAvailable ? (
-        <p className={styles.refreshNotice} role="status">
-          This time slot was just booked and is no longer available.
-        </p>
+      ) : isUnavailable ? (
+        <div className={styles.unavailable} role="status">
+          <p>
+            <strong>
+              {input.startTime}–{input.endTime} is no longer available.
+            </strong>{" "}
+            It is already booked or the resource is closed at that time. No new
+            request was sent.
+          </p>
+          <Link className={styles.sessionLink} href={anotherSlotHref}>
+            Choose another slot
+          </Link>
+        </div>
       ) : (
         <button type="button" disabled={isSubmitting} onClick={() => void submit()}>
           {isSubmitting ? "Sending request…" : "Send booking request"}
@@ -164,7 +187,7 @@ export function BookingRequestForm({
           {error}
         </p>
       )}
-      {!result && (
+      {!result && !isUnavailable && (
         <small>
           Availability is checked again when you send the request. Selecting a slot does not hold it.
         </small>

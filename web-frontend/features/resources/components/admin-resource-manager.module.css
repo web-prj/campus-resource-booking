@@ -32,7 +32,7 @@
 }
 
 .adminNav a {
-  min-height: 38px;
+  min-height: 44px;
   display: grid;
   place-items: center;
   padding: 0 16px;
@@ -396,8 +396,8 @@
 }
 
 .statusControl select {
-  width: 130px;
-  min-height: 38px;
+  min-width: 152px;
+  min-height: 44px;
   padding: 0 28px 0 10px;
   color: var(--ink);
   border: 1px solid rgba(42, 60, 149, 0.16);
@@ -594,6 +594,96 @@
   min-height: 22px;
 }
 
+.catalogStatus:not(:empty) {
+  margin: 14px 26px 0;
+}
+
+.catalogStatus p {
+  margin: 0;
+  font-size: 0.82rem;
+  font-weight: 680;
+}
+
+.pagePosition {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.catalog > .pagination {
+  margin: 20px 26px 24px;
+}
+
+.catalog > .conflictAlert {
+  margin: 16px 26px;
+}
+
+.conflictAlert {
+  display: grid;
+  gap: 8px;
+  margin: 0 0 16px;
+  padding: 16px 18px;
+  color: var(--ink);
+  border: 1px solid rgba(236, 34, 39, 0.28);
+  border-left: 4px solid var(--usth-red);
+  border-radius: 12px;
+  background: #fff5f5;
+  font-size: 0.82rem;
+}
+
+.conflictAlert:focus-visible {
+  outline: 3px solid var(--usth-red);
+  outline-offset: 2px;
+}
+
+.conflictAlert:focus:not(:focus-visible) {
+  outline: none;
+}
+
+.conflictAlert {
+  scroll-margin-block: 96px;
+}
+
+.conflictAlert p {
+  margin: 0;
+}
+
+.conflictAlert strong {
+  color: var(--usth-red-dark);
+}
+
+.conflictAlert ul {
+  display: grid;
+  gap: 6px;
+  margin: 4px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.conflictAlert a {
+  min-height: 44px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px 12px;
+  padding: 8px 12px;
+  color: var(--usth-blue);
+  border: 1px solid rgba(42, 60, 149, 0.16);
+  border-radius: 9px;
+  background: var(--white);
+  font-weight: 750;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.conflictAlert a small {
+  color: var(--muted);
+  font-weight: 700;
+  text-decoration: none;
+}
+
 .formStatus p {
   margin: 0;
   font-size: 0.8rem;
@@ -601,7 +691,7 @@
 }
 
 .successMessage {
-  color: var(--success);
+  color: #148059;
 }
 
 .errorMessage {
@@ -787,8 +877,14 @@
     width: 100%;
   }
 
+  .adminNav {
+    overflow-x: auto;
+  }
+
   .adminNav a {
     flex: 1;
+    padding-inline: 10px;
+    white-space: nowrap;
   }
 
   .header {

@@ -5,12 +5,15 @@ import {
   DataSource,
   EntityManager,
   LessThanOrEqual,
+  MoreThan,
   QueryFailedError,
 } from 'typeorm';
 import {
   CAMPUS_CLOCK,
   CampusClock,
+  campusDateOf,
   campusDateTimeMs,
+  campusTimeOf,
   isFutureCampusTime,
 } from '../common/time/campus-clock';
 import { ResourceClosure } from '../resources/entities/resource-closure.entity';
@@ -139,46 +142,71 @@ export class BookingsService {
     });
   }
 
-  async findOperationsForStaff(): Promise<{
+  async findOperationsForStaff(
+    page: number,
+    pageSize: number,
+  ): Promise<{
     bookings: Booking[];
+    total: number;
     evaluatedAt: Date;
     campusDate: string;
   }> {
     const evaluatedAt = this.clock();
-    const date = this.campusDate(evaluatedAt);
-    const bookings = await this.dataSource.getRepository(Booking).find({
-      where: [
-        {
-          date: LessThanOrEqual(date),
-          status: BookingStatus.CONFIRMED,
-        },
-        {
-          date: LessThanOrEqual(date),
-          status: BookingStatus.CHECKED_IN,
-        },
-      ],
-      relations: this.staffRelations(),
-      order: { date: 'ASC', startTime: 'ASC', createdAt: 'ASC' },
-    });
-    return { bookings, evaluatedAt, campusDate: date };
+    const date = campusDateOf(evaluatedAt);
+    const [bookings, total] = await this.dataSource
+      .getRepository(Booking)
+      .findAndCount({
+        where: [
+          {
+            date: LessThanOrEqual(date),
+            status: BookingStatus.CONFIRMED,
+          },
+          {
+            date: LessThanOrEqual(date),
+            status: BookingStatus.CHECKED_IN,
+          },
+        ],
+        relations: this.staffRelations(),
+        order: { date: 'ASC', startTime: 'ASC', createdAt: 'ASC', id: 'ASC' },
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      });
+    return { bookings, total, evaluatedAt, campusDate: date };
   }
 
-  async findPendingForStaff(): Promise<{
+  /**
+   * Pending requests that can still be reviewed, i.e. whose scheduled end has
+   * not passed in campus time. Filtering happens in SQL so `total` and the
+   * page boundaries agree with what staff can act on.
+   */
+  async findPendingForStaff(
+    page: number,
+    pageSize: number,
+  ): Promise<{
     bookings: Booking[];
+    total: number;
     evaluatedAt: Date;
   }> {
     const evaluatedAt = this.clock();
-    const bookings = await this.dataSource.getRepository(Booking).find({
-      where: { status: BookingStatus.PENDING },
-      relations: this.staffRelations(),
-      order: { createdAt: 'ASC' },
-    });
-    return {
-      bookings: bookings.filter((booking) =>
-        this.canReview(booking, evaluatedAt),
-      ),
-      evaluatedAt,
-    };
+    const today = campusDateOf(evaluatedAt);
+    const nowTime = campusTimeOf(evaluatedAt);
+    const [bookings, total] = await this.dataSource
+      .getRepository(Booking)
+      .findAndCount({
+        where: [
+          { status: BookingStatus.PENDING, date: MoreThan(today) },
+          {
+            status: BookingStatus.PENDING,
+            date: today,
+            endTime: MoreThan(nowTime),
+          },
+        ],
+        relations: this.staffRelations(),
+        order: { createdAt: 'ASC', id: 'ASC' },
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      });
+    return { bookings, total, evaluatedAt };
   }
 
   async findOneForStaff(bookingId: string): Promise<Booking | null> {
@@ -511,15 +539,6 @@ export class BookingsService {
 
   private bookingEndMs(booking: Booking): number {
     return campusDateTimeMs(booking.date, booking.endTime.slice(0, 5));
-  }
-
-  private campusDate(now: Date): string {
-    return new Intl.DateTimeFormat('en-CA', {
-      timeZone: 'Asia/Ho_Chi_Minh',
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-    }).format(now);
   }
 
   private staffRelations() {

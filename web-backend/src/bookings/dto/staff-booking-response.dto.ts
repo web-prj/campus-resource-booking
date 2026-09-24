@@ -123,16 +123,41 @@ export class StaffBookingQueueResponseDto {
   @ApiProperty({ type: StaffBookingResponseDto, isArray: true })
   items: StaffBookingResponseDto[];
 
-  @ApiProperty({ description: 'Total pending requests' })
+  @ApiProperty({
+    description: 'Total reviewable pending requests across all pages',
+    example: 42,
+  })
   total: number;
+
+  @ApiProperty({ example: 1 })
+  page: number;
+
+  @ApiProperty({ example: 20 })
+  pageSize: number;
+
+  @ApiProperty({ example: 3 })
+  totalPages: number;
 }
 
 export class StaffOperationsQueueResponseDto {
   @ApiProperty({ type: StaffBookingResponseDto, isArray: true })
   items: StaffBookingResponseDto[];
 
-  @ApiProperty({ description: 'Total current or overdue operational bookings' })
+  @ApiProperty({
+    description:
+      'Total current or overdue operational bookings across all pages',
+    example: 42,
+  })
   total: number;
+
+  @ApiProperty({ example: 1 })
+  page: number;
+
+  @ApiProperty({ example: 20 })
+  pageSize: number;
+
+  @ApiProperty({ example: 3 })
+  totalPages: number;
 
   @ApiProperty({
     description: 'Campus date used to scope and label this operations snapshot',

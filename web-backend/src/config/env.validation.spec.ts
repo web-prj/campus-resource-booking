@@ -115,4 +115,32 @@ describe('envValidationSchema', () => {
 
     expect(error?.details.length).toBeGreaterThan(1);
   });
+
+  it('accepts an optional, normalized USTH bootstrap administrator email', () => {
+    expect(validate(baseEnv).value.BOOTSTRAP_ADMIN_EMAIL).toBeUndefined();
+    expect(
+      validate({ ...baseEnv, BOOTSTRAP_ADMIN_EMAIL: '' }).error,
+    ).toBeUndefined();
+
+    const { error, value } = validate({
+      ...baseEnv,
+      BOOTSTRAP_ADMIN_EMAIL: '  First.Admin@USTH.edu.vn ',
+    });
+    expect(error).toBeUndefined();
+    expect(value.BOOTSTRAP_ADMIN_EMAIL).toBe('first.admin@usth.edu.vn');
+  });
+
+  it('rejects a bootstrap administrator email outside the exact USTH domain', () => {
+    for (const email of [
+      'admin@gmail.com',
+      'admin@mail.usth.edu.vn',
+      'admin@usth.edu.vn.evil.com',
+      'not-an-email',
+      '@usth.edu.vn',
+    ]) {
+      expect(
+        validate({ ...baseEnv, BOOTSTRAP_ADMIN_EMAIL: email }).error?.message,
+      ).toMatch(/BOOTSTRAP_ADMIN_EMAIL/);
+    }
+  });
 });

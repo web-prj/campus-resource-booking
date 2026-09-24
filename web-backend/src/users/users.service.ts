@@ -11,6 +11,8 @@ import {
   SelfManagementNotAllowedError,
   UserNotFoundError,
 } from './errors/user-management.error';
+import { UserAccessEvents } from './user-access-events';
+import { ACTIVE_ADMIN_ADVISORY_LOCK } from './users.constants';
 
 /**
  * Owns persistence for users. Auth concerns (hashing, tokens, cookies) stay out
@@ -33,6 +35,7 @@ export class UsersService {
   constructor(
     @InjectRepository(User)
     private readonly usersRepository: Repository<User>,
+    private readonly userAccessEvents: UserAccessEvents,
   ) {}
 
   async create(data: CreateUserData): Promise<User> {
@@ -117,11 +120,19 @@ export class UsersService {
     targetId: string,
     isActive: boolean,
   ): Promise<User> {
-    return this.updateManagedUser(actorId, targetId, (target) => ({
-      isActive,
-      removesActiveAdmin:
-        target.role === UserRole.ADMIN && target.isActive && !isActive,
-    }));
+    const updated = await this.updateManagedUser(
+      actorId,
+      targetId,
+      (target) => ({
+        isActive,
+        removesActiveAdmin:
+          target.role === UserRole.ADMIN && target.isActive && !isActive,
+      }),
+    );
+    // Published only after the transaction committed, so listeners never act
+    // on a deactivation that was rolled back.
+    if (!updated.isActive) this.userAccessEvents.publishDeactivated(updated.id);
+    return updated;
   }
 
   /** Includes the password hash, which the entity excludes by default. */
@@ -159,10 +170,9 @@ export class UsersService {
 
       const { removesActiveAdmin, ...updates } = change(target);
       if (removesActiveAdmin) {
-        await manager.query(
-          'SELECT pg_advisory_xact_lock($1)',
-          [2_045_173_001],
-        );
+        await manager.query('SELECT pg_advisory_xact_lock($1)', [
+          ACTIVE_ADMIN_ADVISORY_LOCK,
+        ]);
         const activeAdmins = await repository.count({
           where: { role: UserRole.ADMIN, isActive: true },
         });

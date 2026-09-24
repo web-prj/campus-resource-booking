@@ -3,6 +3,7 @@ import { NestExpressApplication } from '@nestjs/platform-express';
 import * as cookieParser from 'cookie-parser';
 import helmet from 'helmet';
 import { AppConfig, AuthConfig } from './config';
+import { ConfigIoAdapter } from './events/config-io.adapter';
 import { setupSwagger } from './swagger';
 
 export interface AppSetupOptions {
@@ -35,6 +36,8 @@ export function configureApp(
   );
 
   app.enableCors({ origin: appConfig.corsOrigins, credentials: true });
+  // WebSocket handshakes use the same credentialed origin allow-list.
+  app.useWebSocketAdapter(new ConfigIoAdapter(app, appConfig.corsOrigins));
 
   if (options.enableSwagger) {
     setupSwagger(app, appConfig.apiPrefix, authConfig.cookie.name);

@@ -93,6 +93,9 @@ export interface StaffBooking {
 export interface StaffBookingQueue {
   items: StaffBooking[];
   total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
 }
 
 export interface StaffOperationsQueue extends StaffBookingQueue {

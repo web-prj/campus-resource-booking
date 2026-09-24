@@ -8,6 +8,7 @@ import {
   type DiscoverySearchParams,
 } from "@/features/resources/discovery-query";
 import { ResourceDirectory } from "@/features/resources/components/resource-directory";
+import { loginRedirectPath, withSessionRedirect } from "@/lib/api/session";
 
 export const metadata: Metadata = {
   title: "Resource directory",
@@ -22,11 +23,13 @@ interface ResourcesPageProps {
 export default async function ResourcesPage({
   searchParams,
 }: ResourcesPageProps) {
-  const user = await getCurrentUser();
-  if (!user) redirect("/login?next=/resources");
-
   const filters = normalizeDiscoveryFilters(await searchParams);
-  const directory = await getResourceDirectory(filters);
+  const user = await getCurrentUser();
+  if (!user) redirect(loginRedirectPath(discoveryHref(filters)));
+
+  const directory = await withSessionRedirect(discoveryHref(filters), () =>
+    getResourceDirectory(filters),
+  );
 
   const lastPage = Math.max(1, directory.page.totalPages);
   if (directory.page.page > lastPage) {

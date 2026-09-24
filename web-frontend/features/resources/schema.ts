@@ -4,7 +4,10 @@ import type {
   Building,
   Resource,
   ResourceAvailability,
+  ResourceBookingConflict,
   ResourceClosure,
+  ResourceConflictBooking,
+  ResourceConflictBookingStatus,
   ResourcePage,
   ResourceStatus,
   ResourceType,
@@ -306,7 +309,10 @@ export function parseResourceClosures(value: unknown): ResourceClosure[] | null 
     : null;
 }
 
-export function parseResourcePage(value: unknown): ResourcePage | null {
+export function parseResourcePage(
+  value: unknown,
+  maxPageSize = 24,
+): ResourcePage | null {
   if (!isRecord(value)) return null;
   const { items, total, page, pageSize, totalPages } = value;
   const parsedItems = parseResources(items);
@@ -319,7 +325,7 @@ export function parseResourcePage(value: unknown): ResourcePage | null {
     (page as number) < 1 ||
     !Number.isInteger(pageSize) ||
     (pageSize as number) < 1 ||
-    (pageSize as number) > 24 ||
+    (pageSize as number) > maxPageSize ||
     !Number.isInteger(totalPages) ||
     (totalPages as number) < 0 ||
     (totalPages as number) !==
@@ -341,5 +347,72 @@ export function parseResourcePage(value: unknown): ResourcePage | null {
     page: page as number,
     pageSize: pageSize as number,
     totalPages: totalPages as number,
+  };
+}
+
+const CLOCK_PATTERN = /^(?:[01]\d|2[0-3]):[0-5]\d$/;
+const CONFLICT_STATUSES: ReadonlySet<ResourceConflictBookingStatus> = new Set([
+  "pending",
+  "confirmed",
+  "checked_in",
+]);
+
+function parseResourceConflictBooking(
+  value: unknown,
+): ResourceConflictBooking | null {
+  if (!isRecord(value)) return null;
+  const { id, date, startTime, endTime, status } = value;
+  if (
+    !isUuid(id) ||
+    !isCalendarDate(date) ||
+    typeof startTime !== "string" ||
+    !CLOCK_PATTERN.test(startTime) ||
+    typeof endTime !== "string" ||
+    !CLOCK_PATTERN.test(endTime) ||
+    startTime >= endTime ||
+    typeof status !== "string" ||
+    !CONFLICT_STATUSES.has(status as ResourceConflictBookingStatus)
+  ) {
+    return null;
+  }
+  return {
+    id,
+    date,
+    startTime,
+    endTime,
+    status: status as ResourceConflictBookingStatus,
+  };
+}
+
+export function parseResourceBookingConflict(
+  value: unknown,
+): ResourceBookingConflict | null {
+  if (!isRecord(value) || value.code !== "RESOURCE_HAS_ACTIVE_BOOKINGS") {
+    return null;
+  }
+  const { message, conflictCount, conflictingBookings } = value;
+  if (
+    typeof message !== "string" ||
+    !message.trim() ||
+    !Number.isInteger(conflictCount) ||
+    (conflictCount as number) < 1 ||
+    !Array.isArray(conflictingBookings) ||
+    conflictingBookings.length > 10 ||
+    conflictingBookings.length > (conflictCount as number)
+  ) {
+    return null;
+  }
+  const bookings = conflictingBookings.map(parseResourceConflictBooking);
+  if (
+    bookings.some((booking) => booking === null) ||
+    new Set(bookings.map((booking) => booking?.id)).size !== bookings.length
+  ) {
+    return null;
+  }
+  return {
+    code: "RESOURCE_HAS_ACTIVE_BOOKINGS",
+    message: message.trim(),
+    conflictCount: conflictCount as number,
+    conflictingBookings: bookings as ResourceConflictBooking[],
   };
 }

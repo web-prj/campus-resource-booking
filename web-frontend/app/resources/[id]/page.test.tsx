@@ -5,6 +5,7 @@ import {
   getResourceAvailability,
   getResourceDetail,
 } from "@/features/resources/api/server";
+import { SessionExpiredError } from "@/lib/api/session";
 import { notFound, redirect } from "next/navigation";
 import type { Resource, ResourceAvailability } from "@/features/resources/types";
 
@@ -100,7 +101,7 @@ describe("ResourceDetailPage", () => {
     vi.mocked(getCurrentUser).mockResolvedValue(null);
 
     await expect(page()).rejects.toThrow(
-      `redirect:/login?next=/resources/${resource.id}`,
+      `redirect:/login?next=${encodeURIComponent(`/resources/${resource.id}`)}`,
     );
     expect(getResourceDetail).not.toHaveBeenCalled();
   });
@@ -141,11 +142,85 @@ describe("ResourceDetailPage", () => {
       endTime: "11:00",
     });
 
+    expect(contiguous.props.isSlotAvailable).toBe(true);
+
     const gap = await page({
       date: availability.date,
       startTime: "10:00",
       endTime: "13:00",
     });
-    expect(gap.props.selectedSlot).toBeUndefined();
+    expect(gap.props.selectedSlot).toEqual({
+      startTime: "10:00",
+      endTime: "13:00",
+    });
+    expect(gap.props.isSlotAvailable).toBe(false);
+  });
+
+  it("keeps a complete range that was just booked so the page can explain it", async () => {
+    vi.mocked(getCurrentUser).mockResolvedValue(student);
+    vi.mocked(getResourceDetail).mockResolvedValue(resource);
+    vi.mocked(getResourceAvailability).mockResolvedValue({
+      ...availability,
+      slots: [{ startTime: "12:00", endTime: "13:00" }],
+    });
+
+    const result = await page({
+      date: availability.date,
+      startTime: "09:00",
+      endTime: "10:00",
+    });
+
+    expect(result.props.selectedSlot).toEqual({
+      startTime: "09:00",
+      endTime: "10:00",
+    });
+    expect(result.props.isSlotAvailable).toBe(false);
+  });
+
+  it("treats a start time without an end time as a single available slot", async () => {
+    vi.mocked(getCurrentUser).mockResolvedValue(student);
+    vi.mocked(getResourceDetail).mockResolvedValue(resource);
+    vi.mocked(getResourceAvailability).mockResolvedValue(availability);
+
+    const available = await page({ date: availability.date, startTime: "10:00" });
+    expect(available.props.selectedSlot).toEqual({
+      startTime: "10:00",
+      endTime: "11:00",
+    });
+    expect(available.props.isSlotAvailable).toBe(true);
+
+    const unavailable = await page({ date: availability.date, startTime: "11:00" });
+    expect(unavailable.props.selectedSlot).toBeUndefined();
+  });
+
+  it.each([
+    { startTime: "11:00", endTime: "10:00" },
+    { startTime: "10:00", endTime: "10:00" },
+    { startTime: "06:00", endTime: "07:00" },
+    { startTime: "17:00", endTime: "19:00" },
+    { startTime: "10:30", endTime: "11:00" },
+    { endTime: "11:00" },
+  ])("selects nothing for an incomplete or invalid range %o", async (range) => {
+    vi.mocked(getCurrentUser).mockResolvedValue(student);
+    vi.mocked(getResourceDetail).mockResolvedValue(resource);
+    vi.mocked(getResourceAvailability).mockResolvedValue(availability);
+
+    const result = await page({ date: availability.date, ...range });
+
+    expect(result.props.selectedSlot).toBeUndefined();
+    expect(result.props.isSlotAvailable).toBe(false);
+  });
+
+  it("returns an expired session to sign in for the same date and interval", async () => {
+    vi.mocked(getCurrentUser).mockResolvedValue(student);
+    vi.mocked(getResourceDetail).mockRejectedValue(new SessionExpiredError());
+
+    await expect(
+      page({ date: availability.date, startTime: "09:00", endTime: "11:00" }),
+    ).rejects.toThrow(
+      `redirect:/login?next=${encodeURIComponent(
+        `/resources/${resource.id}?date=${availability.date}&startTime=09%3A00&endTime=11%3A00`,
+      )}`,
+    );
   });
 });

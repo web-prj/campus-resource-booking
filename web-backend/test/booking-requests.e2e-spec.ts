@@ -92,6 +92,31 @@ describe('Booking requests (e2e)', () => {
     return row.id;
   }
 
+  /**
+   * The pending queue is oldest first, so requests created by this spec are on
+   * the final pages when the database holds unrelated rows. Returns page 1
+   * plus the last two pages.
+   */
+  async function pendingQueue(cookie: string): Promise<{
+    head: { total: number; page: number; pageSize: number; totalPages: number };
+    items: { id: string; status: string; canReview: boolean }[];
+  }> {
+    const head = await api()
+      .get('/api/staff/bookings/pending?pageSize=50')
+      .set('Cookie', cookie)
+      .expect(200);
+    const items = [...head.body.items];
+    for (const page of [head.body.totalPages - 1, head.body.totalPages]) {
+      if (page <= 1) continue;
+      const tail = await api()
+        .get(`/api/staff/bookings/pending?page=${page}&pageSize=50`)
+        .set('Cookie', cookie)
+        .expect(200);
+      items.push(...tail.body.items);
+    }
+    return { head: head.body, items };
+  }
+
   beforeAll(async () => {
     app = await createTestApp();
     dataSource = app.get(DataSource);
@@ -547,14 +572,17 @@ describe('Booking requests (e2e)', () => {
       .expect(403);
     await api()
       .patch(`/api/staff/bookings/${approveRequest.body.id}/approve`)
-      .set('Cookie', adminCookie)
+      .set('Cookie', studentOneCookie)
       .expect(403);
 
-    const queue = await api()
-      .get('/api/staff/bookings/pending')
-      .set('Cookie', staffCookie)
-      .expect(200);
-    expect(queue.body.items).toEqual(
+    const queue = await pendingQueue(staffCookie);
+    expect(queue.head).toMatchObject({
+      page: 1,
+      pageSize: 50,
+      total: expect.any(Number),
+      totalPages: Math.ceil(queue.head.total / 50),
+    });
+    expect(queue.items).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           id: approveRequest.body.id,
@@ -648,6 +676,116 @@ describe('Booking requests (e2e)', () => {
     });
   });
 
+  it('lets administrators act as staff while students stay forbidden', async () => {
+    const adminRequest = await api()
+      .post('/api/bookings')
+      .set('Cookie', studentOneCookie)
+      .send({
+        resourceId: approvalResourceId,
+        date: '2099-01-26',
+        startTime: '09:00',
+        endTime: '10:00',
+      })
+      .expect(201);
+
+    for (const path of [
+      '/api/staff/bookings/pending',
+      '/api/staff/bookings/operations',
+      `/api/staff/bookings/${adminRequest.body.id}`,
+    ]) {
+      await api().get(path).set('Cookie', studentTwoCookie).expect(403);
+    }
+    await api()
+      .patch(`/api/staff/bookings/${adminRequest.body.id}/approve`)
+      .set('Cookie', studentTwoCookie)
+      .expect(403);
+
+    const queue = await pendingQueue(adminCookie);
+    expect(queue.items).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: adminRequest.body.id,
+          status: 'pending',
+          canReview: true,
+        }),
+      ]),
+    );
+    await api()
+      .get('/api/staff/bookings/operations')
+      .set('Cookie', adminCookie)
+      .expect(200);
+
+    const approved = await api()
+      .patch(`/api/staff/bookings/${adminRequest.body.id}/approve`)
+      .set('Cookie', adminCookie)
+      .expect(200);
+    expect(approved.body).toMatchObject({
+      id: adminRequest.body.id,
+      status: 'confirmed',
+      reviewer: expect.objectContaining({ email: ADMIN_EMAIL }),
+    });
+  });
+
+  it('paginates the pending queue with a consistent total', async () => {
+    const created: string[] = [];
+    for (const date of ['2099-01-27', '2099-01-28', '2099-01-29']) {
+      const response = await api()
+        .post('/api/bookings')
+        .set('Cookie', studentTwoCookie)
+        .send({
+          resourceId: approvalResourceId,
+          date,
+          startTime: '09:00',
+          endTime: '10:00',
+        })
+        .expect(201);
+      created.push(response.body.id as string);
+    }
+
+    const head = await api()
+      .get('/api/staff/bookings/pending?pageSize=50')
+      .set('Cookie', staffCookie)
+      .expect(200);
+    const total = head.body.total as number;
+    expect(total).toBeGreaterThanOrEqual(3);
+
+    const pageSize = 2;
+    const totalPages = Math.ceil(total / pageSize);
+    const fetchPage = async (page: number) => {
+      const response = await api()
+        .get(`/api/staff/bookings/pending?page=${page}&pageSize=${pageSize}`)
+        .set('Cookie', staffCookie)
+        .expect(200);
+      expect(response.body).toMatchObject({
+        total,
+        page,
+        pageSize,
+        totalPages,
+      });
+      return (response.body.items as { id: string }[]).map(({ id }) => id);
+    };
+
+    const firstTwoPages = [...(await fetchPage(1)), ...(await fetchPage(2))];
+    expect(firstTwoPages).toEqual(
+      (head.body.items as { id: string }[])
+        .slice(0, 2 * pageSize)
+        .map(({ id }) => id),
+    );
+    expect(new Set(firstTwoPages).size).toBe(firstTwoPages.length);
+
+    const lastPage = await fetchPage(totalPages);
+    expect(lastPage).toHaveLength(total - (totalPages - 1) * pageSize);
+    expect(lastPage[lastPage.length - 1]).toBe(created[2]);
+    expect(await fetchPage(totalPages + 1)).toEqual([]);
+
+    for (const query of ['page=0', 'pageSize=0', 'pageSize=51', 'extra=1']) {
+      await api()
+        .get(`/api/staff/bookings/pending?${query}`)
+        .set('Cookie', staffCookie)
+        .expect(400);
+    }
+  });
+
   it('serializes competing staff decisions and rejects elapsed requests', async () => {
     const concurrent = await api()
       .post('/api/bookings')
@@ -680,11 +818,8 @@ describe('Booking requests (e2e)', () => {
       RETURNING id`,
       [approvalResourceId, studentOneId],
     );
-    const queue = await api()
-      .get('/api/staff/bookings/pending')
-      .set('Cookie', staffCookie)
-      .expect(200);
-    expect(queue.body.items).not.toEqual(
+    const queue = await pendingQueue(staffCookie);
+    expect(queue.items).not.toEqual(
       expect.arrayContaining([expect.objectContaining({ id: elapsed.id })]),
     );
     const detail = await api()

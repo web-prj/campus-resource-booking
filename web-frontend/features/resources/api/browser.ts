@@ -1,11 +1,13 @@
 import { ApiError, browserRequest } from "@/lib/api/browser-client";
 import {
   parseResource,
+  parseResourceBookingConflict,
   parseResourceClosure,
   parseResourceClosures,
 } from "../schema";
 import type {
   Resource,
+  ResourceBookingConflict,
   ResourceClosure,
   ResourceInput,
   ResourceStatus,
@@ -15,6 +17,7 @@ export type ResourceMutationErrorCode =
   | "validation"
   | "session"
   | "conflict"
+  | "active-bookings"
   | "not-found"
   | "forbidden"
   | "network"
@@ -24,6 +27,7 @@ export class ResourceMutationError extends Error {
   constructor(
     public readonly code: ResourceMutationErrorCode,
     message: string,
+    public readonly conflict: ResourceBookingConflict | null = null,
   ) {
     super(message);
     this.name = "ResourceMutationError";
@@ -34,6 +38,8 @@ const messages: Record<ResourceMutationErrorCode, string> = {
   validation: "Check the resource details and try again.",
   session: "Your session has ended. Sign in again to manage resources.",
   conflict: "A resource with this code already exists.",
+  "active-bookings":
+    "This change affects active bookings. Resolve them before trying again.",
   "not-found":
     "The resource or building no longer exists. Refresh and try again.",
   forbidden: "Your account does not have permission to manage resources.",
@@ -50,6 +56,14 @@ function errorCodeFor(error: ApiError): ResourceMutationErrorCode {
   if (error.status === 404) return "not-found";
   if (error.status === 409) return "conflict";
   return "unexpected";
+}
+
+function activeBookingError(error: ApiError): ResourceMutationError | null {
+  if (error.status !== 409) return null;
+  const conflict = parseResourceBookingConflict(error.body);
+  return conflict
+    ? new ResourceMutationError("active-bookings", conflict.message, conflict)
+    : null;
 }
 
 function sameValues<T>(actual: T[], expected: T[]): boolean {
@@ -108,6 +122,8 @@ async function mutateResource(
   } catch (error) {
     if (error instanceof ResourceMutationError) throw error;
     if (error instanceof ApiError) {
+      const conflict = activeBookingError(error);
+      if (conflict) throw conflict;
       const code = errorCodeFor(error);
       throw new ResourceMutationError(code, messages[code]);
     }
@@ -159,6 +175,8 @@ export function updateResourceStatus(
 function closureError(error: unknown): ResourceMutationError {
   if (error instanceof ResourceMutationError) return error;
   if (error instanceof ApiError) {
+    const conflict = activeBookingError(error);
+    if (conflict) return conflict;
     const code = errorCodeFor(error);
     const message =
       code === "conflict"

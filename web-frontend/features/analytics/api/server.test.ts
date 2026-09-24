@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { cookies } from "next/headers";
 import { getAdminAnalytics } from "./server";
+import { SessionExpiredError } from "@/lib/api/session";
 
 vi.mock("server-only", () => ({}));
 vi.mock("next/headers", () => ({ cookies: vi.fn() }));
@@ -32,5 +33,12 @@ describe("getAdminAnalytics", () => {
   it("rejects malformed analytics data", async () => {
     const request = vi.fn().mockResolvedValue(new Response(JSON.stringify({ ...summary, totalBookings: 9 }), { status: 200 }));
     await expect(getAdminAnalytics({ from: summary.from, to: summary.to }, request)).rejects.toThrow("invalid summary data");
+  });
+
+  it("signals an expired session instead of a generic failure", async () => {
+    const request = vi.fn<typeof fetch>().mockResolvedValue(new Response("{}", { status: 401 }));
+    await expect(
+      getAdminAnalytics({ from: summary.from, to: summary.to }, request),
+    ).rejects.toBeInstanceOf(SessionExpiredError);
   });
 });

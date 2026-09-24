@@ -2,6 +2,7 @@ import "server-only";
 
 import { cookies } from "next/headers";
 import { getServerApiEndpoint } from "@/lib/api/server-config";
+import { assertSessionActive } from "@/lib/api/session";
 import {
   parseStaffBooking,
   parseStaffBookingQueue,
@@ -17,33 +18,58 @@ import type {
 
 async function staffRequest(path: string, request: typeof fetch): Promise<Response> {
   const cookieHeader = (await cookies()).toString();
+  let response: Response;
   try {
-    return await request(getServerApiEndpoint(path), {
+    response = await request(getServerApiEndpoint(path), {
       headers: cookieHeader ? { Cookie: cookieHeader } : undefined,
       cache: "no-store",
     });
   } catch {
     throw new Error("The booking service is unavailable.");
   }
+  assertSessionActive(response);
+  return response;
+}
+
+export const STAFF_QUEUE_PAGE_SIZE = 20;
+
+function queuePath(path: string, page: number): string {
+  const params = new URLSearchParams({
+    page: String(page),
+    pageSize: String(STAFF_QUEUE_PAGE_SIZE),
+  });
+  return `${path}?${params.toString()}`;
 }
 
 export async function getStaffOperationsQueue(
+  page = 1,
   request: typeof fetch = fetch,
 ): Promise<StaffOperationsQueue> {
-  const response = await staffRequest("/staff/bookings/operations", request);
+  const response = await staffRequest(
+    queuePath("/staff/bookings/operations", page),
+    request,
+  );
   if (!response.ok) throw new Error(`Operations queue lookup failed with ${response.status}.`);
   const queue = parseStaffOperationsQueue(await response.json().catch(() => null));
-  if (!queue) throw new Error("The booking service returned invalid operations data.");
+  if (!queue || queue.page !== page || queue.pageSize !== STAFF_QUEUE_PAGE_SIZE) {
+    throw new Error("The booking service returned invalid operations data.");
+  }
   return queue;
 }
 
 export async function getStaffBookingQueue(
+  page = 1,
   request: typeof fetch = fetch,
 ): Promise<StaffBookingQueue> {
-  const response = await staffRequest("/staff/bookings/pending", request);
+  const response = await staffRequest(
+    queuePath("/staff/bookings/pending", page),
+    request,
+  );
   if (!response.ok) throw new Error(`Approval queue lookup failed with ${response.status}.`);
   const queue = parseStaffBookingQueue(await response.json().catch(() => null));
-  if (!queue) throw new Error("The booking service returned invalid queue data.");
+  if (!queue || queue.page !== page || queue.pageSize !== STAFF_QUEUE_PAGE_SIZE) {
+    throw new Error("The booking service returned invalid queue data.");
+  }
   return queue;
 }
 

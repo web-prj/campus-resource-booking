@@ -7,6 +7,8 @@ import { BookingStatus } from '../bookings/enums/booking-status.enum';
 import {
   CAMPUS_CLOCK,
   CampusClock,
+  campusDateOf,
+  campusTimeOf,
   isFutureCampusTime,
 } from '../common/time/campus-clock';
 import { CreateResourceDto } from './dto/create-resource.dto';
@@ -21,6 +23,10 @@ import { ResourceClosure } from './entities/resource-closure.entity';
 import { Resource } from './entities/resource.entity';
 import { ResourceStatus } from './enums/resource-status.enum';
 import { ResourceCodeAlreadyExistsError } from './errors/resource-code-already-exists.error';
+import {
+  MAX_LISTED_CONFLICTS,
+  ResourceHasActiveBookingsError,
+} from './errors/resource-has-active-bookings.error';
 import { AvailabilityEventsService } from '../events/availability-events.service';
 
 @Injectable()
@@ -38,10 +44,12 @@ export class ResourcesService {
     private readonly availabilityEvents: AvailabilityEventsService,
   ) {}
 
-  findAll(): Promise<Resource[]> {
-    return this.resourcesRepository.find({
+  findPage(page: number, pageSize: number): Promise<[Resource[], number]> {
+    return this.resourcesRepository.findAndCount({
       relations: { building: true },
-      order: { name: 'ASC', code: 'ASC' },
+      order: { name: 'ASC', code: 'ASC', id: 'ASC' },
+      skip: (page - 1) * pageSize,
+      take: pageSize,
     });
   }
 
@@ -216,6 +224,23 @@ export class ResourcesService {
             dto.opensAt ?? locked.opensAt,
             dto.closesAt ?? locked.closesAt,
           );
+          const schedule = this.changedSchedule(locked, dto);
+          if (schedule) {
+            await this.requireNoActiveBookings(
+              manager,
+              locked.id,
+              `booking.status IN (:...reviewableStatuses)
+                AND ${ENDS_AFTER_NOW}
+                AND (
+                  NOT (CAST(EXTRACT(DOW FROM booking.date) AS integer) = ANY(CAST(:operatingDays AS integer[])))
+                  OR booking.startTime < :opensAt
+                  OR booking.endTime > :closesAt
+                )`,
+              { reviewableStatuses: REVIEWABLE_STATUSES, ...schedule },
+              (count) =>
+                `Resolve ${bookingCount(count)} outside the new operating schedule before saving it.`,
+            );
+          }
 
           const changes = this.detailChanges(dto);
           if (Object.keys(changes).length) {
@@ -241,6 +266,20 @@ export class ResourcesService {
     const updated = await this.resourcesRepository.manager.transaction(
       async (manager) => {
         const locked = await this.lockResource(manager, resource.id);
+        if (status !== ResourceStatus.ACTIVE) {
+          await this.requireNoActiveBookings(
+            manager,
+            locked.id,
+            `((booking.status IN (:...reviewableStatuses) AND ${ENDS_AFTER_NOW})
+              OR booking.status = :checkedInStatus)`,
+            {
+              reviewableStatuses: REVIEWABLE_STATUSES,
+              checkedInStatus: BookingStatus.CHECKED_IN,
+            },
+            (count) =>
+              `Resolve ${bookingCount(count)} before setting this resource to ${status}.`,
+          );
+        }
         await manager.getRepository(Resource).update(locked.id, { status });
         return (await manager.getRepository(Resource).findOne({
           where: { id: locked.id },
@@ -310,6 +349,16 @@ export class ResourcesService {
       const closure = await this.resourcesRepository.manager.transaction(
         async (manager) => {
           await this.lockResource(manager, resourceId);
+          await this.requireNoActiveBookings(
+            manager,
+            resourceId,
+            `booking.date = :closureDate
+              AND booking.status IN (:...blockingStatuses)
+              AND ${ENDS_AFTER_NOW}`,
+            { closureDate: dto.date, blockingStatuses: BLOCKING_STATUSES },
+            (count) =>
+              `Resolve ${bookingCount(count)} before closing this resource on ${dto.date}.`,
+          );
           const repository = manager.getRepository(ResourceClosure);
           return repository.save(repository.create({ resourceId, ...dto }));
         },
@@ -369,6 +418,69 @@ export class ResourcesService {
       .getOne();
     if (!resource) throw new ResourceNotFoundError();
     return resource;
+  }
+
+  /**
+   * Throws when bookings matched by `condition` would be stranded by a change.
+   * Runs inside the caller's transaction after the resource row is locked;
+   * booking creation takes the same lock, so no new booking can slip in
+   * between this check and the write.
+   */
+  private async requireNoActiveBookings(
+    manager: EntityManager,
+    resourceId: string,
+    condition: string,
+    parameters: Record<string, unknown>,
+    message: (count: number) => string,
+  ): Promise<void> {
+    const now = this.clock();
+    const [bookings, count] = await manager
+      .getRepository(Booking)
+      .createQueryBuilder('booking')
+      .where('booking.resourceId = :resourceId', { resourceId })
+      .andWhere(condition, {
+        ...parameters,
+        today: campusDateOf(now),
+        nowTime: campusTimeOf(now),
+      })
+      .orderBy('booking.date', 'ASC')
+      .addOrderBy('booking.startTime', 'ASC')
+      .addOrderBy('booking.id', 'ASC')
+      .take(MAX_LISTED_CONFLICTS)
+      .getManyAndCount();
+    if (count === 0) return;
+
+    throw new ResourceHasActiveBookingsError(
+      message(count),
+      count,
+      bookings.map((booking) => ({
+        id: booking.id,
+        date: booking.date,
+        startTime: normalizeTime(booking.startTime),
+        endTime: normalizeTime(booking.endTime),
+        status: booking.status,
+      })),
+    );
+  }
+
+  /** The resulting schedule when an update changes it, otherwise null. */
+  private changedSchedule(
+    locked: Resource,
+    dto: UpdateResourceDto,
+  ): { operatingDays: number[]; opensAt: string; closesAt: string } | null {
+    const operatingDays = dto.operatingDays ?? locked.operatingDays;
+    const opensAt = normalizeTime(dto.opensAt ?? locked.opensAt);
+    const closesAt = normalizeTime(dto.closesAt ?? locked.closesAt);
+    const daysKey = (days: number[]) =>
+      [...days]
+        .map(Number)
+        .sort((left, right) => left - right)
+        .join(',');
+    const changed =
+      daysKey(operatingDays) !== daysKey(locked.operatingDays) ||
+      opensAt !== normalizeTime(locked.opensAt) ||
+      closesAt !== normalizeTime(locked.closesAt);
+    return changed ? { operatingDays, opensAt, closesAt } : null;
   }
 
   private detailChanges(
@@ -473,8 +585,20 @@ export class ResourcesService {
   }
 }
 
+/** Bookings that still hold a slot before check-in. */
+const REVIEWABLE_STATUSES = [BookingStatus.PENDING, BookingStatus.CONFIRMED];
+/** Bookings that block availability. */
+const BLOCKING_STATUSES = [...REVIEWABLE_STATUSES, BookingStatus.CHECKED_IN];
+/** The booking's scheduled end (campus time) is after `:today :nowTime`. */
+const ENDS_AFTER_NOW =
+  '(booking.date > :today OR (booking.date = :today AND booking.endTime > :nowTime))';
+
 function normalizeTime(value: string): string {
   return value.slice(0, 5);
+}
+
+function bookingCount(count: number): string {
+  return `${count} active booking${count === 1 ? '' : 's'}`;
 }
 
 export class ResourceNotFoundError extends Error {

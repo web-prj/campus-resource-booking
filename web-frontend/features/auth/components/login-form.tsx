@@ -9,6 +9,7 @@ import {
   LockIcon,
   MailIcon,
 } from "@/components/icons";
+import { disconnectSocket } from "@/lib/realtime/socket";
 import { login, LoginError } from "../api/browser";
 import { isUsthEmail } from "../schema";
 
@@ -70,6 +71,9 @@ export function LoginForm({ redirectTo = "/dashboard" }: LoginFormProps) {
 
     try {
       await login({ email, password });
+      // Drop any realtime socket left from an earlier (expired) session so the
+      // next subscription connects with the new session cookie.
+      disconnectSocket();
       router.replace(redirectTo);
     } catch (error) {
       setFormError(

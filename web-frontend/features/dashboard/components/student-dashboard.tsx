@@ -16,7 +16,8 @@ import {
 } from "@/components/icons";
 import type { User } from "@/features/auth/types";
 import { LogoutButton } from "@/features/auth/components/logout-button";
-import type { StudentBooking, StudentBookingTimeline } from "@/features/bookings/types";
+import { studentDisplayStatus, studentStatusLabel } from "@/features/bookings/status";
+import type { StudentBookingTimeline } from "@/features/bookings/types";
 import type {
   Resource,
   ResourceAvailability,
@@ -32,16 +33,6 @@ const availabilityBands = [
   { startTime: "16:00", endTime: "18:00" },
   { startTime: "18:00", endTime: "20:00" },
 ] as const;
-
-const bookingStatusLabels: Record<StudentBooking["status"], string> = {
-  pending: "Pending approval",
-  confirmed: "Confirmed",
-  checked_in: "Checked in",
-  completed: "Completed",
-  no_show: "No-show",
-  rejected: "Rejected",
-  cancelled: "Cancelled",
-};
 
 const resourceTypeLabels: Record<ResourceType, string> = {
   room: "Room",
@@ -334,9 +325,9 @@ export function StudentDashboard({
                     <div>
                       <span
                         className={styles.bookingStatus}
-                        data-status={nextBooking.status}
+                        data-status={studentDisplayStatus(nextBooking)}
                       >
-                        {bookingStatusLabels[nextBooking.status]}
+                        {studentStatusLabel(nextBooking)}
                       </span>
                       <h3>{nextBooking.resource.name}</h3>
                       <p>

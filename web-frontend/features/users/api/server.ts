@@ -2,6 +2,7 @@ import "server-only";
 
 import { cookies } from "next/headers";
 import { getServerApiEndpoint } from "@/lib/api/server-config";
+import { assertSessionActive } from "@/lib/api/session";
 import { parseAdminUserPage } from "../schema";
 import type { AdminUserFilters, AdminUserPage } from "../types";
 
@@ -32,6 +33,7 @@ export async function getAdminUsers(
   } catch {
     throw new Error("The user service is unavailable.");
   }
+  assertSessionActive(response);
   if (!response.ok) throw new Error(`User lookup failed with ${response.status}.`);
 
   const page = parseAdminUserPage(await response.json().catch(() => null));

@@ -74,6 +74,18 @@ docker compose logs -f postgres backend frontend
 
 Press `Ctrl+C` to stop following logs. This does not stop the containers.
 
+## Creating the first administrator
+
+Registration always creates student accounts, and only an administrator can change roles. To create the first administrator without editing the database by hand:
+
+1. Register the account normally through the application (it must be an exact `@usth.edu.vn` address).
+2. Set `BOOTSTRAP_ADMIN_EMAIL` to that address in `.env` (Docker) or `web-backend/.env` (local run).
+3. Restart the backend (`docker compose up -d backend`, or restart `npm run start:dev`).
+
+At startup, if no **active** administrator exists, the backend promotes that account to `admin` and reactivates it, then logs `Promoted … to administrator`. If the account has not registered yet, it logs a warning and changes nothing; register and restart again. Once any active administrator exists, the setting is ignored. It never creates accounts or handles passwords, and it is serialized with the last-administrator safeguard, so concurrent starts cannot conflict. Remove the value after the first administrator is in place and manage roles from the admin user screen.
+
+An empty value (as Compose passes when the variable is unset) means the feature is off. Any other value must be a valid `@usth.edu.vn` address, or the backend refuses to start.
+
 ## Docker lifecycle commands
 
 Compose commands are preferred because they understand this application's services, network, volume, health checks, and dependency order.
@@ -434,6 +446,19 @@ docker compose up -d
 ```
 
 Cross-site session cookies are intentionally unsupported until unsafe requests have dedicated CSRF protection. Deploy the frontend and API on the same site.
+
+### Sample catalog rows
+
+Migration `1725600000000-CreateResourceCatalog` inserts sample data into **every** database it runs against, including production: 2 buildings (`MAIN` Main Academic Building, `LAB` Laboratory Building) and 4 resources:
+
+| Code | Name | Initial status |
+| --- | --- | --- |
+| `ROOM-A101` | Study Room A101 | active |
+| `ROOM-A102` | Study Room A102 | maintenance |
+| `LAB-L201` | Teaching Laboratory L201 | active |
+| `EQUIP-PROJ-01` | Portable Projector 01 | active |
+
+Do not edit or remove this migration: it has already run against existing databases (editing it changes nothing there and makes fresh databases diverge), and the e2e tests rely on its building IDs. If these sample resources should not be bookable in production, an administrator can set each of them to **inactive** from the admin resource screen (or `PATCH /api/admin/resources/{id}/status` with `{"status":"inactive"}`). Inactive resources are hidden from student search and cannot be booked. The change is refused with `409 RESOURCE_HAS_ACTIVE_BOOKINGS` while a resource still has pending or confirmed bookings that have not ended, or a checked-in booking; resolve those first. The sample buildings remain available for real resources.
 
 ### PostgreSQL backup and restore drill
 

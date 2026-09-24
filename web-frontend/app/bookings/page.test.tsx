@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { SessionExpiredError } from "@/lib/api/session";
 import { getCurrentUser } from "@/features/auth/api/server";
 import { getStudentBookings } from "@/features/bookings/api/server";
 import { redirect } from "next/navigation";
@@ -54,5 +55,13 @@ describe("BookingsPage", () => {
 
     expect(getStudentBookings).toHaveBeenCalledOnce();
     expect(page.props).toEqual({ user: student, timeline });
+  });
+
+  it("returns an expired session to sign in for the bookings page", async () => {
+    vi.mocked(getCurrentUser).mockResolvedValue(student);
+    vi.mocked(getStudentBookings).mockRejectedValue(new SessionExpiredError());
+    await expect(BookingsPage()).rejects.toThrow(
+      "redirect:/login?next=%2Fbookings",
+    );
   });
 });

@@ -1,6 +1,10 @@
 import * as Joi from 'joi';
 import { durationToMs } from '../common/utils/duration.util';
 import {
+  isStudentEmail,
+  STUDENT_EMAIL_DOMAIN,
+} from '../common/validators/is-student-email.validator';
+import {
   DEFAULT_API_PREFIX,
   DEFAULT_AUTH_COOKIE_NAME,
   DEFAULT_CORS_ORIGINS,
@@ -52,6 +56,20 @@ export const envValidationSchema = Joi.object({
   THROTTLE_TTL: Joi.number().integer().positive().default(60),
   THROTTLE_LIMIT: Joi.number().integer().positive().default(100),
   AUTH_THROTTLE_LIMIT: Joi.number().integer().positive().default(10),
+  // Optional. Empty (as an unset Compose passthrough renders it) means unset.
+  BOOTSTRAP_ADMIN_EMAIL: Joi.string()
+    .trim()
+    .lowercase()
+    .max(255)
+    .allow('')
+    .optional()
+    .custom((value: string, helpers) =>
+      isStudentEmail(value)
+        ? value
+        : helpers.message({
+            custom: `BOOTSTRAP_ADMIN_EMAIL must be an exact @${STUDENT_EMAIL_DOMAIN} address.`,
+          }),
+    ),
 }).custom((value, helpers) => {
   // Production session cookies must stay HTTPS-only. Cross-site cookies are
   // rejected by the field schema until unsafe methods have CSRF protection.

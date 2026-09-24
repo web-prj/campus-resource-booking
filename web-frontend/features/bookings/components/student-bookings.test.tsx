@@ -164,6 +164,54 @@ describe("student booking management", () => {
     },
   );
 
+  it("shows ended pending requests in history as expired requests", () => {
+    const expired = {
+      ...booking,
+      id: "40000000-0000-4000-8000-000000000004",
+      status: "pending" as const,
+      canCancel: false,
+      hasEnded: true,
+    };
+    render(
+      <StudentBookings user={user} timeline={{ upcoming: [], history: [expired] }} />,
+    );
+
+    expect(screen.getByText("Expired request")).toBeVisible();
+    expect(screen.queryByText("Pending approval")).not.toBeInTheDocument();
+    expect(
+      screen.getByText("Not reviewed before its scheduled time ended. No booking was made."),
+    ).toBeVisible();
+  });
+
+  it("explains an expired request on its detail page", () => {
+    render(
+      <StudentBookingDetail
+        user={user}
+        booking={{ ...booking, status: "pending", canCancel: false, hasEnded: true }}
+      />,
+    );
+
+    expect(screen.getAllByText("Expired request")).toHaveLength(2);
+    expect(
+      screen.getByRole("heading", { name: "Request expired without review" }),
+    ).toBeVisible();
+    expect(
+      screen.getByText(/did not review this request before its scheduled time ended/),
+    ).toBeVisible();
+    expect(screen.queryByText("Pending approval")).not.toBeInTheDocument();
+  });
+
+  it("keeps an unended pending request labelled as pending approval", () => {
+    render(
+      <StudentBookingDetail
+        user={user}
+        booking={{ ...booking, status: "pending" }}
+      />,
+    );
+    expect(screen.getAllByText("Pending approval")).toHaveLength(2);
+    expect(screen.queryByText("Expired request")).not.toBeInTheDocument();
+  });
+
   it("explains elapsed active lifecycle statuses without presenting upcoming actions", () => {
     render(
       <StudentBookingDetail

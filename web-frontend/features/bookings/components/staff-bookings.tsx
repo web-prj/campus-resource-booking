@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getSafeRedirect } from "@/features/auth/routing";
 import { BrandMark } from "@/components/brand-mark";
+import { PaginationNav } from "@/components/pagination-nav";
 import {
   ArrowRightIcon,
   CalendarIcon,
@@ -29,6 +30,7 @@ import type {
   StaffOperationsQueue,
   StaffResourceSchedule,
 } from "../types";
+import { staffQueueHref } from "../staff-query";
 import styles from "./staff-bookings.module.css";
 
 const statusLabels: Record<StaffBooking["status"], string> = {
@@ -40,6 +42,16 @@ const statusLabels: Record<StaffBooking["status"], string> = {
   rejected: "Rejected",
   cancelled: "Cancelled",
 };
+
+function isReviewWindowClosed(booking: StaffBooking): boolean {
+  return booking.status === "pending" && !booking.canReview;
+}
+
+function staffStatus(booking: StaffBooking): { key: string; label: string } {
+  return isReviewWindowClosed(booking)
+    ? { key: "expired", label: "Expired request" }
+    : { key: booking.status, label: statusLabels[booking.status] };
+}
 
 function fullDate(date: string): string {
   return new Intl.DateTimeFormat("en-GB", {
@@ -68,15 +80,23 @@ function requestedAt(value: string): string {
 }
 
 function StaffHeader({ user, detail = false }: { user: User; detail?: boolean }) {
+  const isAdmin = user.role === "admin";
   return (
     <header className={styles.header}>
       <BrandMark href="/staff" />
       <nav className={styles.headerNav} aria-label="Staff navigation">
         <Link prefetch={false} href="/staff" aria-current={detail ? undefined : "page"}>Approval queue</Link>
         {detail && <span aria-current="page">Request detail</span>}
+        {isAdmin && (
+          <>
+            <Link prefetch={false} href="/admin/resources">Resources</Link>
+            <Link prefetch={false} href="/admin/users">Users</Link>
+            <Link prefetch={false} href="/admin/analytics">Analytics</Link>
+          </>
+        )}
       </nav>
       <div className={styles.identity}>
-        <span><strong>{user.fullName}</strong><small>Staff</small></span>
+        <span><strong>{user.fullName}</strong><small>{isAdmin ? "Administrator" : "Staff"}</small></span>
         <LogoutButton className={styles.logout} errorClassName={styles.logoutError} />
       </div>
     </header>
@@ -98,8 +118,11 @@ export function StaffApprovalQueue({
   const activeVisits = operations.items.filter(
     (booking) => booking.canCheckOut,
   ).length;
+  const operationsPaged = operations.totalPages > 1;
   const oldest = queue.items[0];
   const today = operations.campusDate;
+  const pages = { pendingPage: queue.page, operationsPage: operations.page };
+  const queueOffset = (queue.page - 1) * queue.pageSize;
 
   return (
     <main className={styles.page}>
@@ -119,9 +142,9 @@ export function StaffApprovalQueue({
         <section className={styles.summary} aria-label="Staff dashboard summary">
           <div><StatusIcon /><strong>{queue.total}</strong><span>Requests to review</span></div>
           <div><CalendarIcon /><strong>{operations.total}</strong><span>Open visits to manage</span></div>
-          <div><ShieldCheckIcon /><strong>{codeReady}</strong><span>Codes ready to verify</span></div>
-          <div><ClockIcon /><strong>{activeVisits}</strong><span>Active visits</span></div>
-          <div><ClockIcon /><strong>{oldest ? requestedAt(oldest.createdAt) : "—"}</strong><span>Oldest request</span></div>
+          <div><ShieldCheckIcon /><strong>{codeReady}</strong><span>{operationsPaged ? "Codes ready on this page" : "Codes ready to verify"}</span></div>
+          <div><ClockIcon /><strong>{activeVisits}</strong><span>{operationsPaged ? "Active visits on this page" : "Active visits"}</span></div>
+          <div><ClockIcon /><strong>{oldest ? requestedAt(oldest.createdAt) : "—"}</strong><span>{queue.page > 1 ? "Oldest request on this page" : "Oldest request"}</span></div>
         </section>
 
         <section className={styles.queueSection} aria-labelledby="operations-title">
@@ -150,6 +173,13 @@ export function StaffApprovalQueue({
               <div><h3>No visits need attention</h3><p>Today&apos;s confirmed bookings and unresolved earlier visits appear here.</p></div>
             </div>
           )}
+          <PaginationNav
+            className={styles.pagination}
+            label="Operational worklist pages"
+            page={operations.page}
+            totalPages={operations.totalPages}
+            hrefFor={(page) => staffQueueHref({ ...pages, operationsPage: page })}
+          />
         </section>
 
         <section className={styles.queueSection} aria-labelledby="pending-title">
@@ -161,8 +191,8 @@ export function StaffApprovalQueue({
             <div className={styles.queueList}>
               {queue.items.map((booking, index) => (
                 <article className={styles.queueRow} key={booking.id}>
-                  <div className={styles.order} aria-label={`Queue position ${index + 1}`}>
-                    <span>{String(index + 1).padStart(2, "0")}</span>
+                  <div className={styles.order} aria-label={`Queue position ${queueOffset + index + 1}`}>
+                    <span>{String(queueOffset + index + 1).padStart(2, "0")}</span>
                   </div>
                   <div className={styles.requestIdentity}>
                     <span className={styles.status} data-status={booking.status}>{statusLabels[booking.status]}</span>
@@ -186,6 +216,13 @@ export function StaffApprovalQueue({
               <div><h3>Approval queue is clear</h3><p>New requests for approval-required resources will appear here.</p></div>
             </div>
           )}
+          <PaginationNav
+            className={styles.pagination}
+            label="Pending approval queue pages"
+            page={queue.page}
+            totalPages={queue.totalPages}
+            hrefFor={(page) => staffQueueHref({ ...pages, pendingPage: page })}
+          />
         </section>
       </div>
     </main>
@@ -299,7 +336,7 @@ export function StaffBookingDetail({
         <Link prefetch={false} className={styles.backLink} href="/staff">← Back to approval queue</Link>
         <section className={styles.detailHero} aria-labelledby="review-title">
           <div>
-            <span className={styles.status} data-status={booking.status}>{statusLabels[booking.status]}</span>
+            <span className={styles.status} data-status={staffStatus(booking).key}>{staffStatus(booking).label}</span>
             <p>{booking.resource.code} · Request {booking.id.slice(0, 8).toUpperCase()}</p>
             <h1 id="review-title">{booking.resource.name}</h1>
             <span>{booking.resource.buildingName} · {booking.resource.location}</span>
@@ -324,7 +361,7 @@ export function StaffBookingDetail({
                 {booking.status === "pending"
                   ? booking.canReview
                     ? "Record your decision"
-                    : "Approval window ended"
+                    : "Review window ended"
                   : booking.status === "confirmed"
                     ? "Confirm campus arrival"
                     : booking.status === "checked_in"
@@ -362,11 +399,13 @@ export function StaffBookingDetail({
                   )}
                 </>
               ) : booking.status === "pending" ? (
-                <div className={styles.outcome} data-status={booking.status}>
-                  <strong>Request remains pending</strong>
+                <div className={styles.outcome} data-status="expired">
+                  <strong>Expired request · not reviewed in time</strong>
                   <span>
-                    The scheduled time has ended, so this request can no longer
-                    be approved or rejected.
+                    The scheduled time ended before anyone approved or rejected
+                    this request, so the review window has closed and it can no
+                    longer be reviewed. No action is needed; the student sees it
+                    as an expired request.
                   </span>
                 </div>
               ) : booking.status === "confirmed" ? (
@@ -438,7 +477,7 @@ export function StaffBookingDetail({
               {activeSchedule.length ? activeSchedule.map((item) => (
                 <div className={styles.scheduleSlot} data-current={item.id === booking.id} key={item.id}>
                   <span>{item.startTime}</span><i aria-hidden="true" /><span>{item.endTime}</span>
-                  <div><strong>{item.id === booking.id ? "This request" : item.requester.fullName}</strong><small>{statusLabels[item.status]}</small></div>
+                  <div><strong>{item.id === booking.id ? "This request" : item.requester.fullName}</strong><small>{staffStatus(item).label}</small></div>
                 </div>
               )) : <p>No active bookings remain for this resource on this date.</p>}
             </div>

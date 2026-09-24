@@ -81,10 +81,10 @@ const roleCards = [
   },
   {
     role: "Staff",
-    title: "Approval tools are planned next.",
+    title: "Decide requests and run visits.",
     description:
-      "The next workflow will add pending-request review before later check-in operations.",
-    tags: ["Planned review", "Approval", "Operations"],
+      "Review pending requests against the resource schedule, approve or reject with a reason, verify student check-in codes, confirm check-out, and record no-shows.",
+    tags: ["Approve or reject", "Check-in codes", "No-shows"],
   },
   {
     role: "Administrators",

@@ -32,7 +32,8 @@ import { JwtStrategy } from './strategies/jwt.strategy';
     TokenService,
     JwtStrategy,
   ],
-  // Exported so other modules can reuse cookie handling (e.g. session refresh).
-  exports: [AuthService, AuthCookieService],
+  // Exported so other modules can reuse cookie handling (e.g. session refresh)
+  // and verify session tokens (e.g. the WebSocket gateway).
+  exports: [AuthService, AuthCookieService, JwtModule],
 })
 export class AuthModule {}

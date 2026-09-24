@@ -55,7 +55,7 @@ describe("ResourcesPage", () => {
 
     await expect(
       ResourcesPage({ searchParams: Promise.resolve({}) }),
-    ).rejects.toThrow("redirect:/login?next=/resources");
+    ).rejects.toThrow(`redirect:/login?next=${encodeURIComponent("/resources")}`);
     expect(getResourceDirectory).not.toHaveBeenCalled();
   });
 

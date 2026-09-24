@@ -13,5 +13,10 @@ export const TrimString = () =>
  */
 export const NormalizeEmail = () =>
   Transform(({ value }: { value: unknown }) =>
-    typeof value === 'string' ? value.trim().toLowerCase() : value,
+    typeof value === 'string' ? normalizeEmailAddress(value) : value,
   );
+
+/** The canonical stored form of an email address. */
+export function normalizeEmailAddress(value: string): string {
+  return value.trim().toLowerCase();
+}

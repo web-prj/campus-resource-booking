@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { getCurrentUser } from "@/features/auth/api/server";
 import { getStudentBooking } from "@/features/bookings/api/server";
 import { StudentBookingDetail } from "@/features/bookings/components/student-bookings";
+import { withSessionRedirect } from "@/lib/api/session";
 
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -24,7 +25,9 @@ export default async function BookingDetailPage({ params }: BookingDetailPagePro
   if (!user) redirect(`/login?next=/bookings/${id}`);
   if (user.role !== "student") redirect("/dashboard");
 
-  const booking = await getStudentBooking(id);
+  const booking = await withSessionRedirect(`/bookings/${id}`, () =>
+    getStudentBooking(id),
+  );
   if (!booking) notFound();
   return (
     <StudentBookingDetail

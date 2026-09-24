@@ -8,6 +8,7 @@ import {
   getResourceAvailability,
   getResourceDirectory,
 } from "@/features/resources/api/server";
+import { withSessionRedirect } from "@/lib/api/session";
 
 const CAMPUS_TIME_ZONE = "Asia/Ho_Chi_Minh";
 
@@ -34,14 +35,18 @@ export default async function DashboardPage() {
   if (user.role === "staff") redirect("/staff");
 
   const date = campusDate();
-  const [timeline, directory] = await Promise.all([
-    getStudentBookings(),
-    getResourceDirectory({}),
-  ]);
-  const resources = directory.page.items.slice(0, 3);
-  const availability = await Promise.all(
-    resources.map((resource) => getResourceAvailability(resource.id, date)),
-  );
+  const { timeline, directory, resources, availability } =
+    await withSessionRedirect("/dashboard", async () => {
+      const [timeline, directory] = await Promise.all([
+        getStudentBookings(),
+        getResourceDirectory({}),
+      ]);
+      const resources = directory.page.items.slice(0, 3);
+      const availability = await Promise.all(
+        resources.map((resource) => getResourceAvailability(resource.id, date)),
+      );
+      return { timeline, directory, resources, availability };
+    });
   const dashboardResources = resources.flatMap((resource, index) => {
     const resourceAvailability = availability[index];
     return resourceAvailability
