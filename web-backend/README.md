@@ -253,6 +253,13 @@ npm run test:e2e       # end-to-end (requires a migrated database)
 npm run test:cov       # coverage
 ```
 
+## Benchmarks
+
+`npm run bench:availability` times resource search and availability queries
+against 50,000 synthetic bookings under several booking-index sets, using the
+`.env.test` database. All seeded data and index changes are rolled back. See
+[docs/benchmarks](../docs/benchmarks/README.md) for options and findings.
+
 ## Scripts
 
 | Script                  | Description                       |

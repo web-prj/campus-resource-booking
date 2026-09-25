@@ -25,7 +25,8 @@
     "demo:seed": "ts-node src/database/demo-data.ts",
     "demo:clean": "ts-node src/database/demo-data.ts --clean",
     "catalog:import": "ts-node src/database/catalog-import.ts",
-    "catalog:clean": "ts-node src/database/catalog-import.ts --clean"
+    "catalog:clean": "ts-node src/database/catalog-import.ts --clean",
+    "bench:availability": "ts-node src/database/availability-benchmark-runner.ts --env .env.test"
   },
   "dependencies": {
     "@nestjs/cache-manager": "^12.0.0",
