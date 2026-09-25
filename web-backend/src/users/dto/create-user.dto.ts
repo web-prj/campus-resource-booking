@@ -10,3 +10,12 @@ export interface CreateUserData {
   fullName: string;
   role?: UserRole;
 }
+
+/** A staff or admin account provisioned from configuration at startup. */
+export interface BootstrapAccountData {
+  email: string;
+  fullName: string;
+  role: UserRole.ADMIN | UserRole.STAFF;
+  /** Needed only to create the account when it does not exist yet. */
+  passwordHash?: string;
+}

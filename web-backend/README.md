@@ -215,7 +215,12 @@ list.
 | `CORS_ORIGINS`          | `localhost:18321` | Comma-separated allowed origins          |
 | `THROTTLE_LIMIT`        | `100`            | Requests per window                      |
 | `AUTH_THROTTLE_LIMIT`   | `10`             | Tighter budget for login/register        |
-| `BOOTSTRAP_ADMIN_EMAIL` | unset            | Registered USTH account promoted to admin at startup when no active admin exists |
+| `BOOTSTRAP_ADMIN_EMAIL` | unset            | USTH admin account provisioned at startup (see root README) |
+| `BOOTSTRAP_ADMIN_PASSWORD` | unset         | Creates the admin account if missing; never changes an existing password |
+| `BOOTSTRAP_ADMIN_NAME`  | `Campus Administrator` | Full name for a newly created admin |
+| `BOOTSTRAP_STAFF_EMAIL` | unset            | USTH staff account provisioned at startup |
+| `BOOTSTRAP_STAFF_PASSWORD` | unset         | Creates the staff account if missing; never changes an existing password |
+| `BOOTSTRAP_STAFF_NAME`  | `Campus Staff`   | Full name for a newly created staff account |
 
 ## Database migrations
 

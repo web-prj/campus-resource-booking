@@ -74,17 +74,26 @@ docker compose logs -f postgres backend frontend
 
 Press `Ctrl+C` to stop following logs. This does not stop the containers.
 
-## Creating the first administrator
+## Creating the admin and staff accounts
 
-Registration always creates student accounts, and only an administrator can change roles. To create the first administrator without editing the database by hand:
+Registration always creates student accounts, and only an administrator can change roles. To get a first administrator and a staff account without editing the database, set them in `.env` (Docker) or `web-backend/.env` (local run):
 
-1. Register the account normally through the application (it must be an exact `@usth.edu.vn` address).
-2. Set `BOOTSTRAP_ADMIN_EMAIL` to that address in `.env` (Docker) or `web-backend/.env` (local run).
-3. Restart the backend (`docker compose up -d backend`, or restart `npm run start:dev`).
+```bash
+BOOTSTRAP_ADMIN_EMAIL=first.admin@usth.edu.vn
+BOOTSTRAP_ADMIN_PASSWORD=<a strong password>
+BOOTSTRAP_ADMIN_NAME="Campus Administrator"   # optional
+BOOTSTRAP_STAFF_EMAIL=first.staff@usth.edu.vn
+BOOTSTRAP_STAFF_PASSWORD=<a strong password>
+BOOTSTRAP_STAFF_NAME="Campus Staff"           # optional
+```
 
-At startup, if no **active** administrator exists, the backend promotes that account to `admin` and reactivates it, then logs `Promoted … to administrator`. If the account has not registered yet, it logs a warning and changes nothing; register and restart again. Once any active administrator exists, the setting is ignored. It never creates accounts or handles passwords, and it is serialized with the last-administrator safeguard, so concurrent starts cannot conflict. Remove the value after the first administrator is in place and manage roles from the admin user screen.
+Then restart the backend (`docker compose up -d backend`, or restart `npm run start:dev`). At startup the backend, for each configured account:
 
-An empty value (as Compose passes when the variable is unset) means the feature is off. Any other value must be a valid `@usth.edu.vn` address, or the backend refuses to start.
+- **Creates it** with the configured role when the email has no account yet and a password is set, and logs `Created … account`.
+- **Leaves an existing account alone**: its password, role, and status are never changed, so changing the password in `.env` later has no effect, and a role or deactivation set from the admin user screen survives restarts. A staff email that already belongs to another role only logs a warning.
+- **Recovers the admin**: if no **active** administrator exists, the configured admin account is promoted to `admin` and reactivated, even if it registered normally. Without a password, this is the only thing it does, and a missing account only logs a warning.
+
+Passwords follow the registration rules (8 characters to 72 bytes). Emails must be exact `@usth.edu.vn` addresses, and the admin and staff emails must differ. Empty values, as Compose passes for unset variables, turn an account off. The admin step is serialized with the last-administrator safeguard, so concurrent starts cannot conflict. Keep these values out of version control; once the accounts exist you can remove the passwords.
 
 ## Docker lifecycle commands
 
@@ -459,6 +468,17 @@ Migration `1725600000000-CreateResourceCatalog` inserts sample data into **every
 | `EQUIP-PROJ-01` | Portable Projector 01 | active |
 
 Do not edit or remove this migration: it has already run against existing databases (editing it changes nothing there and makes fresh databases diverge), and the e2e tests rely on its building IDs. If these sample resources should not be bookable in production, an administrator can set each of them to **inactive** from the admin resource screen (or `PATCH /api/admin/resources/{id}/status` with `{"status":"inactive"}`). Inactive resources are hidden from student search and cannot be booked. The change is refused with `409 RESOURCE_HAS_ACTIVE_BOOKINGS` while a resource still has pending or confirmed bookings that have not ended, or a checked-in booking; resolve those first. The sample buildings remain available for real resources.
+
+For demonstrations, a separate, larger fictional catalog of 42 rooms, laboratories, and equipment in 6 buildings can be imported and removed again. It never touches the sample rows above, users, or bookings, and it refuses to run when `NODE_ENV=production`:
+
+```bash
+# Local backend
+cd web-backend && set -a; . ./.env; set +a; npm run catalog:import   # or: npm run catalog:clean
+# Running Compose stack
+docker compose exec backend node dist/database/catalog-import.js     # add --clean to remove
+```
+
+See [Demo resource catalog](docs/MVP_RELEASE.md#demo-resource-catalog) for details.
 
 ### PostgreSQL backup and restore drill
 

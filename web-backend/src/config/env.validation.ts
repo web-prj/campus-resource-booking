@@ -4,6 +4,7 @@ import {
   isStudentEmail,
   STUDENT_EMAIL_DOMAIN,
 } from '../common/validators/is-student-email.validator';
+import { hasMaxUtf8ByteLength } from '../common/validators/max-utf8-byte-length.validator';
 import {
   DEFAULT_API_PREFIX,
   DEFAULT_AUTH_COOKIE_NAME,
@@ -13,6 +14,36 @@ import {
 } from './defaults';
 
 const DURATION = /^(\d+(ms|s|m|h|d)|\d+)$/;
+
+const bootstrapEmail = (name: string) =>
+  Joi.string()
+    .trim()
+    .lowercase()
+    .max(255)
+    .allow('')
+    .optional()
+    .custom((value: string, helpers) =>
+      isStudentEmail(value)
+        ? value
+        : helpers.message({
+            custom: `${name} must be an exact @${STUDENT_EMAIL_DOMAIN} address.`,
+          }),
+    );
+
+// Same rules as registration: 8+ characters, at most 72 bytes (bcrypt limit).
+const bootstrapPassword = (name: string) =>
+  Joi.string()
+    .allow('')
+    .optional()
+    .custom((value: string, helpers) =>
+      value.length >= 8 && hasMaxUtf8ByteLength(value, 72)
+        ? value
+        : helpers.message({
+            custom: `${name} must be 8 characters to 72 bytes long.`,
+          }),
+    );
+
+const bootstrapName = Joi.string().trim().max(120).allow('').optional();
 
 /**
  * Every variable the app reads is declared here, so a missing or malformed
@@ -56,20 +87,14 @@ export const envValidationSchema = Joi.object({
   THROTTLE_TTL: Joi.number().integer().positive().default(60),
   THROTTLE_LIMIT: Joi.number().integer().positive().default(100),
   AUTH_THROTTLE_LIMIT: Joi.number().integer().positive().default(10),
-  // Optional. Empty (as an unset Compose passthrough renders it) means unset.
-  BOOTSTRAP_ADMIN_EMAIL: Joi.string()
-    .trim()
-    .lowercase()
-    .max(255)
-    .allow('')
-    .optional()
-    .custom((value: string, helpers) =>
-      isStudentEmail(value)
-        ? value
-        : helpers.message({
-            custom: `BOOTSTRAP_ADMIN_EMAIL must be an exact @${STUDENT_EMAIL_DOMAIN} address.`,
-          }),
-    ),
+  // Optional startup accounts. Empty (as an unset Compose passthrough renders
+  // it) means unset.
+  BOOTSTRAP_ADMIN_EMAIL: bootstrapEmail('BOOTSTRAP_ADMIN_EMAIL'),
+  BOOTSTRAP_ADMIN_PASSWORD: bootstrapPassword('BOOTSTRAP_ADMIN_PASSWORD'),
+  BOOTSTRAP_ADMIN_NAME: bootstrapName,
+  BOOTSTRAP_STAFF_EMAIL: bootstrapEmail('BOOTSTRAP_STAFF_EMAIL'),
+  BOOTSTRAP_STAFF_PASSWORD: bootstrapPassword('BOOTSTRAP_STAFF_PASSWORD'),
+  BOOTSTRAP_STAFF_NAME: bootstrapName,
 }).custom((value, helpers) => {
   // Production session cookies must stay HTTPS-only. Cross-site cookies are
   // rejected by the field schema until unsafe methods have CSRF protection.
@@ -96,6 +121,26 @@ export const envValidationSchema = Joi.object({
     return helpers.message({
       custom:
         'NODE_ENV=production requires a generated AUTH_JWT_SECRET, not the example placeholder.',
+    });
+  }
+
+  for (const prefix of ['BOOTSTRAP_ADMIN', 'BOOTSTRAP_STAFF']) {
+    if (
+      !value[`${prefix}_EMAIL`] &&
+      (value[`${prefix}_PASSWORD`] || value[`${prefix}_NAME`])
+    ) {
+      return helpers.message({
+        custom: `${prefix}_PASSWORD and ${prefix}_NAME require ${prefix}_EMAIL.`,
+      });
+    }
+  }
+
+  if (
+    value.BOOTSTRAP_ADMIN_EMAIL &&
+    value.BOOTSTRAP_ADMIN_EMAIL === value.BOOTSTRAP_STAFF_EMAIL
+  ) {
+    return helpers.message({
+      custom: 'BOOTSTRAP_ADMIN_EMAIL and BOOTSTRAP_STAFF_EMAIL must differ.',
     });
   }
 

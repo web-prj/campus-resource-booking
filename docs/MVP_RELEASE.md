@@ -99,6 +99,38 @@ npm run demo:clean
 
 For a fully containerized stack, run the TypeScript seed from the checked-out backend on the host, pointed at `localhost:${DB_HOST_PORT:-18322}`. The production runtime image intentionally excludes development tools such as `ts-node`.
 
+### Demo resource catalog
+
+A larger, fictional catalog for demonstrating search, filters, availability, and approvals lives in `web-backend/src/database/demo-catalog.ts`: 42 resources (15 rooms, 17 laboratories, 10 equipment items) in 6 buildings (`LHC`, `LCM`, `SIC`, `EWB`, `SEO`, `SMH`). It mixes approval rules, capacities from 1 to 450, operating days and hours, and includes 2 `maintenance` and 1 `inactive` resource. It also adds 8 upcoming closures, dated relative to the campus date of the import (Asia/Ho_Chi_Minh) and moved to the resource's next operating day. It creates no users or bookings and can be combined with `demo:seed`.
+
+Local backend against the Compose PostgreSQL port:
+
+```bash
+cd web-backend
+set -a; . ./.env; set +a
+npm run catalog:import
+```
+
+Inside the running Compose backend container, which runs compiled code and receives its database settings from Compose (rebuild the image after pulling catalog changes):
+
+```bash
+docker compose exec backend node dist/database/catalog-import.js
+docker compose exec backend node dist/database/catalog-import.js --clean
+```
+
+Remove it after the demonstration:
+
+```bash
+npm run catalog:clean
+```
+
+Behaviour:
+
+- Checks the whole dataset before it connects to the database, and exits non-zero with a list of problems if the data is invalid. Refuses to run when `NODE_ENV=production`.
+- Runs in one transaction and can be run again safely. Buildings are upserted by code. Resources are inserted, or refreshed by code unless they have a `pending`, `confirmed`, or `checked_in` booking; those are skipped and listed. Closures are added only on dates without an active booking for that resource, and an existing closure is never duplicated.
+- `--clean` deletes catalog resources that have no bookings at all, together with their closures, and then catalog buildings that no longer have resources. Resources with booking history and their buildings are kept and listed.
+- It only touches the catalog codes above. It never modifies migration sample rows (`MAIN`, `LAB`, `ROOM-A101`, …), `DEMO-*` rows, users, or bookings. Closures from earlier runs on other dates stay until `--clean`.
+
 ## 6. Read-only API smoke
 
 Without demo credentials, verify public health and protected-route enforcement:
