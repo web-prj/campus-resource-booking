@@ -143,4 +143,64 @@ describe('envValidationSchema', () => {
       ).toMatch(/BOOTSTRAP_ADMIN_EMAIL/);
     }
   });
+
+  it('accepts optional bootstrap admin and staff accounts', () => {
+    const { error, value } = validate({
+      ...baseEnv,
+      BOOTSTRAP_ADMIN_EMAIL: 'first.admin@usth.edu.vn',
+      BOOTSTRAP_ADMIN_PASSWORD: 'admin-password',
+      BOOTSTRAP_ADMIN_NAME: '',
+      BOOTSTRAP_STAFF_EMAIL: ' Desk.Staff@USTH.edu.vn',
+      BOOTSTRAP_STAFF_PASSWORD: 'staff-password',
+      BOOTSTRAP_STAFF_NAME: 'Lan Pham',
+    });
+    expect(error).toBeUndefined();
+    expect(value.BOOTSTRAP_STAFF_EMAIL).toBe('desk.staff@usth.edu.vn');
+    expect(
+      validate({
+        ...baseEnv,
+        BOOTSTRAP_STAFF_EMAIL: '',
+        BOOTSTRAP_STAFF_PASSWORD: '',
+      }).error,
+    ).toBeUndefined();
+  });
+
+  it('rejects bootstrap staff emails outside the exact USTH domain', () => {
+    expect(
+      validate({ ...baseEnv, BOOTSTRAP_STAFF_EMAIL: 'staff@gmail.com' }).error
+        ?.message,
+    ).toMatch(/BOOTSTRAP_STAFF_EMAIL/);
+  });
+
+  it('applies registration password rules to bootstrap passwords', () => {
+    for (const password of ['short', 'é'.repeat(37)]) {
+      expect(
+        validate({
+          ...baseEnv,
+          BOOTSTRAP_ADMIN_EMAIL: 'first.admin@usth.edu.vn',
+          BOOTSTRAP_ADMIN_PASSWORD: password,
+        }).error?.message,
+      ).toMatch(/BOOTSTRAP_ADMIN_PASSWORD must be 8 characters to 72 bytes/);
+    }
+  });
+
+  it('rejects a bootstrap password or name without its email', () => {
+    expect(
+      validate({ ...baseEnv, BOOTSTRAP_STAFF_PASSWORD: 'staff-password' }).error
+        ?.message,
+    ).toMatch(/BOOTSTRAP_STAFF_PASSWORD and BOOTSTRAP_STAFF_NAME require/);
+    expect(
+      validate({ ...baseEnv, BOOTSTRAP_ADMIN_NAME: 'Admin' }).error?.message,
+    ).toMatch(/require BOOTSTRAP_ADMIN_EMAIL/);
+  });
+
+  it('rejects the same bootstrap email for admin and staff', () => {
+    expect(
+      validate({
+        ...baseEnv,
+        BOOTSTRAP_ADMIN_EMAIL: 'same@usth.edu.vn',
+        BOOTSTRAP_STAFF_EMAIL: 'Same@usth.edu.vn',
+      }).error?.message,
+    ).toMatch(/must differ/);
+  });
 });

@@ -4,6 +4,7 @@ import { UserRole } from './enums/user-role.enum';
 import { EmailAlreadyExistsError } from './errors/email-already-exists.error';
 import { LastActiveAdminError } from './errors/user-management.error';
 import { UserAccessEvents } from './user-access-events';
+import { ACTIVE_ADMIN_ADVISORY_LOCK } from './users.constants';
 import { UsersService } from './users.service';
 
 const userData = {
@@ -128,6 +129,195 @@ describe('UsersService', () => {
         managed.updateStatus(actor.id, target.id, false),
       ).rejects.toBeInstanceOf(LastActiveAdminError);
       expect(published).toEqual([]);
+    });
+  });
+
+  describe('provisionBootstrapAccount', () => {
+    const EMAIL = 'first.admin@usth.edu.vn';
+    const account = {
+      email: EMAIL,
+      fullName: 'Campus Administrator',
+      role: UserRole.ADMIN as const,
+      passwordHash: '$2b$12$bootstrap',
+    };
+
+    function bootstrapHarness(
+      options: {
+        existing?: Partial<User> | null;
+        activeAdmins?: number;
+        insertedRows?: number;
+      } = {},
+    ) {
+      const insert = {
+        insert: jest.fn(),
+        into: jest.fn(),
+        values: jest.fn(),
+        orIgnore: jest.fn(),
+        returning: jest.fn(),
+        execute: jest.fn().mockResolvedValue({
+          raw: Array.from({ length: options.insertedRows ?? 1 }, () => ({
+            id: 'new',
+          })),
+        }),
+      };
+      for (const step of [
+        'insert',
+        'into',
+        'values',
+        'orIgnore',
+        'returning',
+      ] as const) {
+        insert[step].mockReturnValue(insert);
+      }
+      const transactionalRepository = {
+        findOne: jest.fn().mockResolvedValue(options.existing ?? null),
+        count: jest.fn().mockResolvedValue(options.activeAdmins ?? 0),
+        update: jest.fn().mockResolvedValue({ affected: 1 }),
+        createQueryBuilder: jest.fn().mockReturnValue(insert),
+      };
+      const order: string[] = [];
+      const manager = {
+        query: jest.fn(async () => {
+          order.push('lock');
+          return [];
+        }),
+        getRepository: jest.fn().mockReturnValue(transactionalRepository),
+      };
+      transactionalRepository.findOne.mockImplementation(async () => {
+        order.push('find');
+        return options.existing ?? null;
+      });
+      const bootstrapService = new UsersService(
+        {
+          manager: {
+            transaction: jest.fn(
+              async (operation: (value: typeof manager) => unknown) =>
+                operation(manager),
+            ),
+          },
+        } as unknown as Repository<User>,
+        userAccessEvents,
+      );
+      return {
+        service: bootstrapService,
+        repository: transactionalRepository,
+        insert,
+        manager,
+        order,
+      };
+    }
+
+    it('creates a missing admin under the active-admin lock', async () => {
+      const harness = bootstrapHarness({ activeAdmins: 2 });
+
+      await expect(
+        harness.service.provisionBootstrapAccount(account),
+      ).resolves.toBe('created');
+      expect(harness.order).toEqual(['lock', 'find']);
+      expect(harness.manager.query).toHaveBeenCalledWith(
+        'SELECT pg_advisory_xact_lock($1)',
+        [ACTIVE_ADMIN_ADVISORY_LOCK],
+      );
+      expect(harness.insert.values).toHaveBeenCalledWith({
+        email: EMAIL,
+        passwordHash: '$2b$12$bootstrap',
+        fullName: 'Campus Administrator',
+        role: UserRole.ADMIN,
+        isActive: true,
+      });
+      expect(harness.insert.orIgnore).toHaveBeenCalled();
+    });
+
+    it('creates a missing staff account without taking the admin lock', async () => {
+      const harness = bootstrapHarness();
+
+      await expect(
+        harness.service.provisionBootstrapAccount({
+          ...account,
+          email: 'desk.staff@usth.edu.vn',
+          role: UserRole.STAFF,
+        }),
+      ).resolves.toBe('created');
+      expect(harness.manager.query).not.toHaveBeenCalled();
+      expect(harness.insert.values).toHaveBeenCalledWith(
+        expect.objectContaining({ role: UserRole.STAFF, isActive: true }),
+      );
+    });
+
+    it('reports a registration that won the insert race as unchanged', async () => {
+      const harness = bootstrapHarness({ insertedRows: 0 });
+
+      await expect(
+        harness.service.provisionBootstrapAccount(account),
+      ).resolves.toBe('unchanged');
+    });
+
+    it('never creates a missing account without a password', async () => {
+      const harness = bootstrapHarness();
+
+      await expect(
+        harness.service.provisionBootstrapAccount({
+          ...account,
+          passwordHash: undefined,
+        }),
+      ).resolves.toBe('account-missing');
+      expect(harness.repository.createQueryBuilder).not.toHaveBeenCalled();
+    });
+
+    it('leaves an existing active account with the configured role alone', async () => {
+      const harness = bootstrapHarness({
+        existing: { id: 'u1', role: UserRole.ADMIN, isActive: true },
+      });
+
+      await expect(
+        harness.service.provisionBootstrapAccount(account),
+      ).resolves.toBe('already-provisioned');
+      expect(harness.repository.update).not.toHaveBeenCalled();
+    });
+
+    it('never changes an existing staff-configured account', async () => {
+      const harness = bootstrapHarness({
+        existing: { id: 'u1', role: UserRole.STUDENT, isActive: true },
+      });
+
+      await expect(
+        harness.service.provisionBootstrapAccount({
+          ...account,
+          role: UserRole.STAFF,
+        }),
+      ).resolves.toBe('unchanged');
+      expect(harness.repository.update).not.toHaveBeenCalled();
+      expect(harness.repository.createQueryBuilder).not.toHaveBeenCalled();
+    });
+
+    it('promotes and reactivates the configured admin when no active admin exists', async () => {
+      const harness = bootstrapHarness({
+        existing: { id: 'u1', role: UserRole.STUDENT, isActive: false },
+        activeAdmins: 0,
+      });
+
+      await expect(
+        harness.service.provisionBootstrapAccount(account),
+      ).resolves.toBe('promoted');
+      expect(harness.repository.count).toHaveBeenCalledWith({
+        where: { role: UserRole.ADMIN, isActive: true },
+      });
+      expect(harness.repository.update).toHaveBeenCalledWith('u1', {
+        role: UserRole.ADMIN,
+        isActive: true,
+      });
+    });
+
+    it('does not promote the configured admin while another admin is active', async () => {
+      const harness = bootstrapHarness({
+        existing: { id: 'u1', role: UserRole.ADMIN, isActive: false },
+        activeAdmins: 1,
+      });
+
+      await expect(
+        harness.service.provisionBootstrapAccount(account),
+      ).resolves.toBe('admin-exists');
+      expect(harness.repository.update).not.toHaveBeenCalled();
     });
   });
 });

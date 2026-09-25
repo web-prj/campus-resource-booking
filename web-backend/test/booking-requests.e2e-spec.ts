@@ -1,6 +1,6 @@
 import { INestApplication } from '@nestjs/common';
 import { DataSource } from 'typeorm';
-import * as request from 'supertest';
+import request from 'supertest';
 import { createTestApp, deleteUsers, findSetCookie } from './utils/test-app';
 
 jest.setTimeout(15_000);

@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { QueryFailedError, Repository } from 'typeorm';
 import { AdminUsersQueryDto } from './dto/admin-users-query.dto';
-import { CreateUserData } from './dto/create-user.dto';
+import { BootstrapAccountData, CreateUserData } from './dto/create-user.dto';
 import { User } from './entities/user.entity';
 import { UserRole } from './enums/user-role.enum';
 import { EmailAlreadyExistsError } from './errors/email-already-exists.error';
@@ -13,6 +13,14 @@ import {
 } from './errors/user-management.error';
 import { UserAccessEvents } from './user-access-events';
 import { ACTIVE_ADMIN_ADVISORY_LOCK } from './users.constants';
+
+export type BootstrapAccountOutcome =
+  | 'created'
+  | 'promoted'
+  | 'already-provisioned'
+  | 'admin-exists'
+  | 'unchanged'
+  | 'account-missing';
 
 /**
  * Owns persistence for users. Auth concerns (hashing, tokens, cookies) stay out
@@ -48,6 +56,67 @@ export class UsersService {
 
       throw error;
     }
+  }
+
+  /**
+   * Creates a configured staff or admin account when it is missing. Existing
+   * accounts keep their password, role, and status, so changes made in the
+   * admin console survive restarts. The one exception is recovery: the
+   * configured admin is promoted and reactivated when no active admin exists.
+   */
+  async provisionBootstrapAccount(
+    data: BootstrapAccountData,
+  ): Promise<BootstrapAccountOutcome> {
+    return this.usersRepository.manager.transaction(async (manager) => {
+      const isAdmin = data.role === UserRole.ADMIN;
+      if (isAdmin) {
+        // Same lock as the last-active-admin guard, so a concurrent demotion
+        // or another booting instance cannot interleave with this check.
+        await manager.query('SELECT pg_advisory_xact_lock($1)', [
+          ACTIVE_ADMIN_ADVISORY_LOCK,
+        ]);
+      }
+      const repository = manager.getRepository(User);
+      const existing = await repository.findOne({
+        where: { email: data.email },
+      });
+
+      if (!existing) {
+        if (!data.passwordHash) return 'account-missing';
+        const inserted = await repository
+          .createQueryBuilder()
+          .insert()
+          .into(User)
+          .values({
+            email: data.email,
+            passwordHash: data.passwordHash,
+            fullName: data.fullName,
+            role: data.role,
+            isActive: true,
+          })
+          .orIgnore()
+          .returning('id')
+          .execute();
+        // A registration that raced in first keeps its own password and role.
+        return (inserted.raw as unknown[]).length > 0 ? 'created' : 'unchanged';
+      }
+
+      if (existing.role === data.role && existing.isActive) {
+        return 'already-provisioned';
+      }
+      if (!isAdmin) return 'unchanged';
+
+      const activeAdmins = await repository.count({
+        where: { role: UserRole.ADMIN, isActive: true },
+      });
+      if (activeAdmins > 0) return 'admin-exists';
+
+      await repository.update(existing.id, {
+        role: UserRole.ADMIN,
+        isActive: true,
+      });
+      return 'promoted';
+    });
   }
 
   findById(id: string): Promise<User | null> {
