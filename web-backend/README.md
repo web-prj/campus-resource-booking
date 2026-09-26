@@ -1,283 +1,53 @@
 # web-backend
 
-Backend for **Campus Resource Booking** — a university room and equipment
-reservation system. Built with [NestJS](https://nestjs.com/) and **PostgreSQL**
-via [TypeORM](https://typeorm.io/).
+NestJS 11 API for Campus Resource Booking, using PostgreSQL through TypeORM. It serves `http://localhost:18320/api`, with Swagger docs at `/api/docs` outside production.
 
-## Features
+## Run locally
 
-- NestJS 11 with a modular, feature-based structure
-- PostgreSQL via TypeORM (`@nestjs/typeorm`)
-- Typed, namespaced environment configuration (`@nestjs/config` + Joi)
-- Database migrations (no `synchronize` in production)
-- **Cookie-based sessions**: the JWT is delivered in an `httpOnly` cookie, never
-  in the response body
-- **Secure by default**: authentication is applied globally; routes opt out with
-  `@Public()`
-- Role-based access control (`student` / `staff` / `admin`) via `@Roles(...)`
-- Access restricted to **`@usth.edu.vn`** email addresses
-- Rate limiting, `helmet` security headers, and credentialed CORS
-- OpenAPI docs at `GET /api/docs` (non-production only)
-- Health checks (`@nestjs/terminus`) at `GET /api/health`
-- ESLint + Prettier, Jest unit & e2e tests
-- Root Docker Compose stack runs PostgreSQL, backend, and frontend together
-
-## Getting started
-
-### 1. Install dependencies
+From the repository root, start PostgreSQL with `docker compose up -d postgres`. Then, in this folder:
 
 ```bash
 npm install
-```
-
-### 2. Configure environment
-
-```bash
-cp .env.example .env
-```
-
-Set a real `AUTH_JWT_SECRET` (minimum 32 characters):
-
-```bash
-openssl rand -base64 48
-```
-
-### 3. Start PostgreSQL and apply migrations
-
-From the repository root, start PostgreSQL:
-
-```bash
-docker compose up -d postgres
-```
-
-Then return to `web-backend/` and apply migrations:
-
-```bash
+cp .env.example .env     # local defaults; set a real AUTH_JWT_SECRET for anything shared
 npm run migration:run
-```
-
-Or point `.env` at an existing PostgreSQL instance.
-
-### 4. Run the app
-
-```bash
 npm run start:dev
 ```
 
-The API is at `http://localhost:18320/api`, with docs at
-`http://localhost:18320/api/docs`.
+To run everything in Docker instead, see the [root README](../README.md).
 
-## Running with Docker
+## How it works
 
-Docker configuration is owned by the repository root. The combined stack builds
-and starts PostgreSQL, this API, and the Next.js frontend; pending migrations run
-automatically before the API starts:
+- **Sessions:** login sets the JWT in an `httpOnly` cookie; it is never returned in a response body. Browser clients send requests with `credentials: 'include'`.
+- **Secure by default:** every route requires a session unless marked `@Public()`. Restrict routes by role with `@Roles(UserRole.STAFF, ...)`.
+- **USTH only:** registration and login accept exact `@usth.edu.vn` addresses.
+- **Code layout:** one feature module per folder in `src/` (`auth`, `users`, `resources`, `bookings`, `analytics`, `events`, ...). Controllers handle HTTP, services hold the rules, DTOs validate input and shape responses. Configuration is read only through `src/config/`.
+- **Schema:** migrations in `src/database/migrations` are the source of truth; `synchronize` stays off.
+- **Scripts:** the demo data and benchmark tools live in `src/scripts/`.
 
-```bash
-cd ..
-cp .env.example .env
-# Replace AUTH_JWT_SECRET in .env with: openssl rand -base64 48
-docker compose up -d --build
-```
+## Commands
 
-See the root `README.md` and `compose.yaml` for service URLs, configuration, logs,
-and shutdown commands.
-
-## Authentication
-
-The signed JWT is set as an `httpOnly`, `SameSite=Lax` cookie. Browser
-JavaScript cannot read it, which removes the XSS token-theft exposure that comes
-with storing tokens in `localStorage`. Clients never handle the token: they just
-send requests with credentials included.
-
-Access is restricted to the **`@usth.edu.vn`** domain, enforced by the
-`IsStudentEmail` validator on both registration and login. Any other domain,
-including subdomains such as `x@mail.usth.edu.vn`, is rejected with `400`.
-
-| Method | Route                | Auth   | Description                               |
-| ------ | -------------------- | ------ | ----------------------------------------- |
-| `POST` | `/api/auth/register` | Public | Create an account and start a session     |
-| `POST` | `/api/auth/login`    | Public | Exchange credentials for a session cookie |
-| `POST` | `/api/auth/logout`   | Cookie | Clear the session cookie (`204`)          |
-| `GET`  | `/api/auth/me`       | Cookie | Return the authenticated user             |
-
-```bash
-# Register — the cookie is stored in cookies.txt; the body holds only the user
-curl -c cookies.txt -X POST http://localhost:18320/api/auth/register \
-  -H 'Content-Type: application/json' \
-  -d '{"email":"nam.tran@usth.edu.vn","password":"password123","fullName":"Nam Tran"}'
-
-# Log in
-curl -c cookies.txt -X POST http://localhost:18320/api/auth/login \
-  -H 'Content-Type: application/json' \
-  -d '{"email":"nam.tran@usth.edu.vn","password":"password123"}'
-
-# Call a protected route with the stored cookie
-curl -b cookies.txt http://localhost:18320/api/auth/me
-
-# Log out
-curl -b cookies.txt -X POST http://localhost:18320/api/auth/logout
-```
-
-From the companion frontend at `http://localhost:18321`, send
-`credentials: 'include'`. That origin is allowed by default; set `CORS_ORIGINS`
-to explicit comma-separated origins for other deployments. A wildcard is not
-usable with credentialed requests.
-
-### Frontend example
-
-```ts
-await fetch('http://localhost:18320/api/auth/login', {
-  method: 'POST',
-  credentials: 'include', // required, both to store and to send the cookie
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ email, password }),
-});
-
-const me = await fetch('http://localhost:18320/api/auth/me', {
-  credentials: 'include',
-}).then((res) => res.json());
-```
-
-### Cross-site deployments
-
-Serve the frontend and API from the same site. Cross-site session cookies
-(`SameSite=None`) are intentionally rejected until unsafe requests have
-dedicated CSRF protection. Startup accepts only `lax` or `strict`, and
-production also requires secure HTTPS cookies.
-
-### Protecting routes
-
-Authentication is global, so a new controller is protected the moment it is
-added. Mark exceptions explicitly:
-
-```ts
-@Public()                      // no session required
-@Get('resources')
-findAll() {}
-
-@Roles(UserRole.ADMIN)         // session required, admin only
-@Post('resources')
-create() {}
-
-@Get('bookings')
-findMine(@CurrentUser('id') userId: string) {}
-```
-
-Passwords are hashed with bcrypt (cost `AUTH_BCRYPT_ROUNDS`, default 12) and the
-hash is excluded from queries by default. Tokens and cookies share one lifetime
-(`AUTH_TOKEN_EXPIRES_IN`), so they cannot drift apart.
-
-## Project structure
-
-```
-src/
-├── auth/                  # Sessions, cookies, guards, roles, @usth.edu.vn rule
-│   ├── decorators/        # @Public, @Roles, @CurrentUser
-│   ├── dto/
-│   ├── guards/            # JwtAuthGuard (global), RolesGuard
-│   ├── interfaces/
-│   ├── services/          # Cookie, password, and token concerns
-│   └── strategies/        # Reads the JWT from the cookie
-├── common/                # Cross-cutting helpers
-│   ├── decorators/        # Input normalisation
-│   ├── utils/
-│   └── validators/
-├── config/                # Namespaced, typed, validated configuration
-├── database/              # TypeORM setup, data source, migrations
-├── health/                # Health-check endpoint
-├── resources/             # Catalog, discovery, schedules, and closures
-├── bookings/              # Booking requests and overlap enforcement
-├── throttler/             # Rate-limit configuration
-├── users/                 # User entity, roles, persistence
-├── app.module.ts          # Root module, global guards
-└── main.ts                # Bootstrap: cookies, helmet, CORS, validation
-```
-
-Each feature module owns its entity, DTOs, service, and controller. Shared
-concerns live in `common/`, and every environment value is declared in
-`config/`, so nothing reads `process.env` at runtime.
+| Command | What it does |
+| --- | --- |
+| `npm run start:dev` | Start with reload on change |
+| `npm run build` / `npm run start:prod` | Compile to `dist/` / run the compiled app |
+| `npm run lint` | Lint and auto-fix |
+| `npm test` | Unit tests |
+| `npm run test:e2e` | End-to-end tests; need a migrated database from `.env.test` |
+| `npm run migration:run` | Apply pending migrations |
+| `npm run migration:generate -- src/database/migrations/Name` | Generate a migration from entity changes (review it before applying) |
+| `npm run migration:revert` | Revert the last migration |
+| `npm run catalog:import` / `catalog:clean` | Import or remove the demo rooms, labs, and equipment |
+| `npm run bench:availability` | Benchmark availability queries ([results](../docs/benchmarks/README.md)) |
 
 ## Configuration
 
-All variables are validated at boot, so a missing or malformed value fails
-immediately instead of at the first request. See `.env.example` for the full
-list.
+Every variable is validated at startup, so a bad value fails immediately. `.env.example` lists them all. The ones you are most likely to change:
 
-| Variable                | Default          | Purpose                                  |
-| ----------------------- | ---------------- | ---------------------------------------- |
-| `AUTH_JWT_SECRET`       | —                | Signing key, minimum 32 chars (required) |
-| `AUTH_TOKEN_EXPIRES_IN` | `1d`             | Token _and_ cookie lifetime              |
-| `AUTH_COOKIE_NAME`      | `access_token`   | Session cookie name                      |
-| `AUTH_COOKIE_SAME_SITE` | `lax`            | `lax` or `strict`                         |
-| `AUTH_COOKIE_SECURE`    | prod: `true`     | HTTPS-only cookie                        |
-| `AUTH_BCRYPT_ROUNDS`    | `12`             | Password hashing cost                    |
-| `CORS_ORIGINS`          | `localhost:18321` | Comma-separated allowed origins          |
-| `THROTTLE_LIMIT`        | `100`            | Requests per window                      |
-| `AUTH_THROTTLE_LIMIT`   | `10`             | Tighter budget for login/register        |
-| `BOOTSTRAP_ADMIN_EMAIL` | unset            | USTH admin account provisioned at startup (see root README) |
-| `BOOTSTRAP_ADMIN_PASSWORD` | unset         | Creates the admin account if missing; never changes an existing password |
-| `BOOTSTRAP_ADMIN_NAME`  | `Campus Administrator` | Full name for a newly created admin |
-| `BOOTSTRAP_STAFF_EMAIL` | unset            | USTH staff account provisioned at startup |
-| `BOOTSTRAP_STAFF_PASSWORD` | unset         | Creates the staff account if missing; never changes an existing password |
-| `BOOTSTRAP_STAFF_NAME`  | `Campus Staff`   | Full name for a newly created staff account |
-
-## Database migrations
-
-```bash
-# Generate a migration from entity changes
-npm run migration:generate -- src/database/migrations/MigrationName
-
-# Create an empty migration
-npm run migration:create src/database/migrations/MigrationName
-
-# Apply migrations
-npm run migration:run
-
-# Revert the last migration
-npm run migration:revert
-```
-
-> Migrations are the source of truth for the schema. `synchronize` is disabled
-> by default — keep it that way outside of throwaway local experiments.
-
-## Testing
-
-Unit tests run without external services. The e2e suite needs PostgreSQL and
-reads `.env.test`, which is committed with throwaway local values; real
-environment variables override it.
-
-```bash
-npm run test           # unit
-npm run test:e2e       # end-to-end (requires a migrated database)
-npm run test:cov       # coverage
-```
-
-## Benchmarks
-
-`npm run bench:availability` times resource search and availability queries
-against 50,000 synthetic bookings under several booking-index sets, using the
-`.env.test` database. All seeded data and index changes are rolled back. See
-[docs/benchmarks](../docs/benchmarks/README.md) for options and findings.
-
-## Scripts
-
-| Script                  | Description                       |
-| ----------------------- | --------------------------------- |
-| `npm run start:dev`     | Start in watch mode               |
-| `npm run start:prod`    | Run the compiled build            |
-| `npm run build`         | Compile to `dist/`                |
-| `npm run lint`          | Lint and auto-fix                 |
-| `npm run test`          | Unit tests                        |
-| `npm run test:e2e`      | End-to-end tests                  |
-| `npm run migration:run` | Apply pending database migrations |
-
-## Adding a feature module
-
-```bash
-npx nest generate resource bookings
-```
-
-Follow the conventions already in `src/`: keep HTTP concerns in the controller,
-business rules in the service, and expose data through a response DTO with a
-`fromEntity` mapper so internal columns are never returned by accident.
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `AUTH_JWT_SECRET` | — | Signing key, at least 32 characters (required) |
+| `CORS_ORIGINS` | `http://localhost:18321` | Allowed frontend origins, comma-separated |
+| `AUTH_TOKEN_EXPIRES_IN` | `1d` | Session length |
+| `AUTH_COOKIE_SECURE` | `true` in production | HTTPS-only cookie |
+| `DB_HOST`, `DB_PORT`, `DB_USERNAME`, `DB_PASSWORD`, `DB_NAME` | local Compose database | PostgreSQL connection |
+| `BOOTSTRAP_ADMIN_*`, `BOOTSTRAP_STAFF_*` | unset | First admin and staff accounts ([root README](../README.md#admin-and-staff-accounts)) |

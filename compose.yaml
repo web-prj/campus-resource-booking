@@ -9,7 +9,9 @@ services:
       POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
       POSTGRES_DB: ${DB_NAME:-web_backend}
     ports:
-      - "${DB_HOST_PORT:-18322}:5432"
+      # Loopback only: reachable from this machine (local backend runs, tests),
+      # never from the network.
+      - "127.0.0.1:${DB_HOST_PORT:-18322}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:

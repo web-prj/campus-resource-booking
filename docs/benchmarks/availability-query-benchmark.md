@@ -1,6 +1,6 @@
 # Availability query benchmark
 
-Generated 2026-09-25T18:17:13.187Z by `npm run bench:availability` (web-backend). Re-run it to refresh this file; see the options in `src/database/availability-benchmark-runner.ts`.
+Generated 2026-09-25T18:17:13.187Z by `npm run bench:availability` (web-backend). Re-run it to refresh this file; see the options in `src/scripts/availability-benchmark-runner.ts`.
 
 The benchmark seeds a synthetic catalog and booking history inside one transaction, times the real `ResourcesService` read paths under several booking-index variants, and rolls everything back, so the database is left unchanged.
 

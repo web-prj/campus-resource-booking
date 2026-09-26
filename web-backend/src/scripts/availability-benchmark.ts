@@ -342,7 +342,7 @@ export function renderReport(report: BenchmarkReport): string {
   const lines: string[] = [
     '# Availability query benchmark',
     '',
-    `Generated ${report.generatedAt} by \`npm run bench:availability\` (web-backend). Re-run it to refresh this file; see the options in \`src/database/availability-benchmark-runner.ts\`.`,
+    `Generated ${report.generatedAt} by \`npm run bench:availability\` (web-backend). Re-run it to refresh this file; see the options in \`src/scripts/availability-benchmark-runner.ts\`.`,
     '',
     'The benchmark seeds a synthetic catalog and booking history inside one transaction, times the real `ResourcesService` read paths under several booking-index variants, and rolls everything back, so the database is left unchanged.',
     '',
