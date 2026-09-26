@@ -22,7 +22,7 @@ To run everything in Docker instead, see the [root README](../README.md).
 - **USTH only:** registration and login accept exact `@usth.edu.vn` addresses.
 - **Code layout:** one feature module per folder in `src/` (`auth`, `users`, `resources`, `bookings`, `analytics`, `events`, ...). Controllers handle HTTP, services hold the rules, DTOs validate input and shape responses. Configuration is read only through `src/config/`.
 - **Schema:** migrations in `src/database/migrations` are the source of truth; `synchronize` stays off.
-- **Scripts:** the demo data and benchmark tools live in `src/scripts/`.
+- **Scripts:** the demo data, benchmark and load-test tools live in `src/scripts/`.
 
 ## Commands
 
@@ -38,6 +38,7 @@ To run everything in Docker instead, see the [root README](../README.md).
 | `npm run migration:revert` | Revert the last migration |
 | `npm run catalog:import` / `catalog:clean` | Import or remove the demo rooms, labs, and equipment |
 | `npm run bench:availability` | Benchmark availability queries ([results](../docs/benchmarks/README.md)) |
+| `npm run load:test` | Load and stress test the API in a throwaway database ([results](../docs/benchmarks/performance-comparison.md)) |
 
 ## Configuration
 
