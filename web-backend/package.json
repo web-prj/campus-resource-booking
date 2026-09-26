@@ -22,11 +22,11 @@
     "migration:create": "typeorm-ts-node-commonjs migration:create",
     "migration:run": "npm run typeorm -- migration:run",
     "migration:revert": "npm run typeorm -- migration:revert",
-    "demo:seed": "ts-node src/database/demo-data.ts",
-    "demo:clean": "ts-node src/database/demo-data.ts --clean",
-    "catalog:import": "ts-node src/database/catalog-import.ts",
-    "catalog:clean": "ts-node src/database/catalog-import.ts --clean",
-    "bench:availability": "ts-node src/database/availability-benchmark-runner.ts --env .env.test"
+    "demo:seed": "ts-node src/scripts/demo-data.ts",
+    "demo:clean": "ts-node src/scripts/demo-data.ts --clean",
+    "catalog:import": "ts-node src/scripts/catalog-import.ts",
+    "catalog:clean": "ts-node src/scripts/catalog-import.ts --clean",
+    "bench:availability": "ts-node src/scripts/availability-benchmark-runner.ts --env .env.test"
   },
   "dependencies": {
     "@nestjs/cache-manager": "^12.0.0",

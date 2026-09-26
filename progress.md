@@ -153,5 +153,4 @@ Use this file to track feature completion. Plan implementation details separatel
 - [x] Availability-query optimization benchmarks
 - [ ] Load and stress testing
 - [ ] Performance comparison report
-- [ ] Advanced analytics and exports
 

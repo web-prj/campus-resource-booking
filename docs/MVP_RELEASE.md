@@ -101,7 +101,7 @@ For a fully containerized stack, run the TypeScript seed from the checked-out ba
 
 ### Demo resource catalog
 
-A larger, fictional catalog for demonstrating search, filters, availability, and approvals lives in `web-backend/src/database/demo-catalog.ts`: 42 resources (15 rooms, 17 laboratories, 10 equipment items) in 6 buildings (`LHC`, `LCM`, `SIC`, `EWB`, `SEO`, `SMH`). It mixes approval rules, capacities from 1 to 450, operating days and hours, and includes 2 `maintenance` and 1 `inactive` resource. It also adds 8 upcoming closures, dated relative to the campus date of the import (Asia/Ho_Chi_Minh) and moved to the resource's next operating day. It creates no users or bookings and can be combined with `demo:seed`.
+A larger, fictional catalog for demonstrating search, filters, availability, and approvals lives in `web-backend/src/scripts/demo-catalog.ts`: 42 resources (15 rooms, 17 laboratories, 10 equipment items) in 6 buildings (`LHC`, `LCM`, `SIC`, `EWB`, `SEO`, `SMH`). It mixes approval rules, capacities from 1 to 450, operating days and hours, and includes 2 `maintenance` and 1 `inactive` resource. It also adds 8 upcoming closures, dated relative to the campus date of the import (Asia/Ho_Chi_Minh) and moved to the resource's next operating day. It creates no users or bookings and can be combined with `demo:seed`.
 
 Local backend against the Compose PostgreSQL port:
 
@@ -114,8 +114,8 @@ npm run catalog:import
 Inside the running Compose backend container, which runs compiled code and receives its database settings from Compose (rebuild the image after pulling catalog changes):
 
 ```bash
-docker compose exec backend node dist/database/catalog-import.js
-docker compose exec backend node dist/database/catalog-import.js --clean
+docker compose exec backend node dist/scripts/catalog-import.js
+docker compose exec backend node dist/scripts/catalog-import.js --clean
 ```
 
 Remove it after the demonstration:
@@ -131,30 +131,7 @@ Behaviour:
 - `--clean` deletes catalog resources that have no bookings at all, together with their closures, and then catalog buildings that no longer have resources. Resources with booking history and their buildings are kept and listed.
 - It only touches the catalog codes above. It never modifies migration sample rows (`MAIN`, `LAB`, `ROOM-A101`, …), `DEMO-*` rows, users, or bookings. Closures from earlier runs on other dates stay until `--clean`.
 
-## 6. Read-only API smoke
-
-Without demo credentials, verify public health and protected-route enforcement:
-
-```bash
-./scripts/release-smoke.sh
-```
-
-With demo data seeded, verify every role:
-
-```bash
-DEMO_PASSWORD='choose-a-local-demo-password' ./scripts/release-smoke.sh
-```
-
-Override deployment addresses when needed:
-
-```bash
-FRONTEND_URL=https://frontend.example \
-API_URL=https://api.example/api \
-DEMO_PASSWORD='...' \
-./scripts/release-smoke.sh
-```
-
-## 7. Browser smoke matrix
+## 6. Browser smoke matrix
 
 Use the Playwright CLI instructions in `AGENTS.md`. Exercise real actions, not page loads only.
 
@@ -182,7 +159,7 @@ Use the Playwright CLI instructions in `AGENTS.md`. Exercise real actions, not p
 
 For every role, test representative desktop and 390px mobile widths, keyboard focus, 44px+ primary targets, reduced motion, horizontal overflow, console errors, and failed requests. Delete temporary accounts/bookings/resources and close browser sessions afterward.
 
-## 8. Final release checks
+## 7. Final release checks
 
 ```bash
 git status --short
@@ -195,9 +172,9 @@ Confirm:
 
 - No secrets, cookies, generated browser artifacts, or temporary users remain.
 - Package locks match package manifests.
-- The root README documents the deployed URLs and Docker lifecycle.
+- The root README documents the service URLs and Docker commands.
 - `.env` is ignored and deployment secrets come from the deployment platform.
-- PostgreSQL has a successful off-host backup and isolated restore drill using the procedure in the root README before production data is introduced.
+- PostgreSQL has a successful off-host backup and isolated restore drill using the procedure in [DEPLOYMENT.md](DEPLOYMENT.md) before production data is introduced.
 
 ## Rollback
 

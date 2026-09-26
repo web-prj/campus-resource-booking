@@ -1,13 +1,10 @@
-# Campus Resource Booking — Frontend
+# web-frontend
 
-A Next.js interface for discovering and booking USTH rooms, laboratories, and equipment. The MVP includes authentication, live student availability and booking management, staff approval/check-in/check-out workflows, admin resource and user management, and date-filtered booking analytics.
+Next.js 16 (React 19, App Router) interface for Campus Resource Booking: search and live availability, booking and check-in for students, approvals and check-in/out for staff, and resource, user, and analytics management for admins.
 
-## Requirements
+## Run locally
 
-- Node.js 22+
-- The companion NestJS API in `../web-backend`
-
-## Local development
+Start the API first ([web-backend](../web-backend/README.md)), then:
 
 ```bash
 npm install
@@ -15,9 +12,20 @@ cp .env.example .env.local
 npm run dev
 ```
 
-The frontend runs at [http://localhost:18321](http://localhost:18321). Browser requests use `NEXT_PUBLIC_API_URL`, defaulting to `http://localhost:18320/api`. Server Components use `INTERNAL_API_URL` when provided, which lets the root Docker Compose stack reach the backend at `http://backend:18320/api` without exposing that container hostname to browsers.
+Open http://localhost:18321. To run everything in Docker instead, see the [root README](../README.md).
 
-The backend allows `http://localhost:18321` by default. Browser requests use `credentials: "include"`, while Server Components explicitly forward the incoming cookie for session checks. The token is never exposed to or stored by frontend JavaScript.
+## How it connects to the API
+
+- Browser requests go to `NEXT_PUBLIC_API_URL` (default `http://localhost:18320/api`) with `credentials: "include"`. The value is compiled in, so rebuild after changing it.
+- Server Components use `INTERNAL_API_URL` when set (Docker uses `http://backend:18320/api`) and forward the user's cookie.
+- The session token lives only in an `httpOnly` cookie; frontend code never reads or stores it.
+
+## Code layout
+
+- `app/`: routes and layouts
+- `features/`: UI and logic per area (auth, resources, bookings, dashboard, users, analytics)
+- `components/`: shared UI
+- `lib/`: API client and session helpers, pagination, realtime socket
 
 ## Checks
 
