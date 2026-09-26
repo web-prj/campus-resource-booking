@@ -4,7 +4,7 @@ A USTH web app for finding, booking, approving, and managing university rooms, l
 
 - `web-frontend/` — Next.js 16 and React 19 ([README](web-frontend/README.md))
 - `web-backend/` — NestJS 11, TypeORM, and PostgreSQL ([README](web-backend/README.md))
-- `docs/` — project proposal, [release checklist](docs/MVP_RELEASE.md), [deployment](docs/DEPLOYMENT.md), [benchmarks](docs/benchmarks/README.md)
+- `docs/` — project proposal, [release checklist](docs/MVP_RELEASE.md), [deployment](docs/DEPLOYMENT.md), [benchmarks](docs/benchmarks/README.md), [presentation kit](docs/presentation/README.md)
 
 ## Quick start
 
